@@ -28,7 +28,7 @@ try {
 	const health = await api('GET', '/api/health');
 	assert.equal(health.ok, true);
 	assert.ok((await api('GET', '/')).includes('fabma'), 'UI is served');
-	assert.ok((await api('GET', '/agent.md')).includes('fabma drop'), 'AGENT.md is served');
+	assert.ok((await api('GET', '/agent.md')).includes('/api/drop'), 'AGENT.md is served');
 
 	const html = '<!doctype html><html><head><style>:root{--a:#f00}body{color:var(--a)}</style></head><body><section><h1>Hi</h1></section><section><svg viewBox="0 0 10 10"><rect width="10" height="10"/></svg></section></body></html>';
 	const drop = await api('POST', '/api/drop', { title: 'Smoke', variants: [{ name: 'A', html }, { name: 'B', html }] });
@@ -45,17 +45,24 @@ try {
 	assert.equal(feedback.decision.variant, 1);
 	assert.equal(feedback.variants[1].comments[0].x, 33);
 
-	// Round 2 into the same session + the discussion thread.
-	const round2 = await api('POST', '/api/drop', { projectId: drop.projectId, note: 'refined takes', variants: [{ name: 'B2', html }] });
-	assert.equal(round2.projectId, drop.projectId);
-	const waitingMsg = api('GET', `/api/projects/${drop.projectId}/messages?wait=15&after=${(await api('GET', `/api/projects/${drop.projectId}/messages`)).at(-1).id}`);
+	// Round 2 into the same session, a second session, and the scoped thread.
+	assert.ok(drop.sessionId, 'drop returns a sessionId');
+	const round2 = await api('POST', '/api/drop', { projectId: drop.projectId, sessionId: drop.sessionId, note: 'refined takes', variants: [{ name: 'B2', html }] });
+	assert.equal(round2.sessionId, drop.sessionId);
+	const other = await api('POST', '/api/drop', { projectId: drop.projectId, title: 'Other topic', note: 'unrelated', variants: [{ name: 'X', html }] });
+	assert.notEqual(other.sessionId, drop.sessionId);
+
+	const scoped = await api('GET', `/api/projects/${drop.projectId}/messages?session=${drop.sessionId}`);
+	const waitingMsg = api('GET', `/api/projects/${drop.projectId}/messages?session=${drop.sessionId}&wait=15&after=${scoped.at(-1).id}`);
 	await new Promise((resolve) => setTimeout(resolve, 200));
-	await api('POST', `/api/projects/${drop.projectId}/messages`, { from: 'human', text: 'love B2' });
+	await api('POST', `/api/projects/${drop.projectId}/messages`, { from: 'human', text: 'love B2', sessionId: drop.sessionId });
 	const newMessages = await waitingMsg;
 	assert.equal(newMessages.at(-1).text, 'love B2');
 	const project = await api('GET', `/api/projects/${drop.projectId}`);
-	assert.equal(project.generations.length, 2);
-	assert.ok(project.messages.some((m) => m.from === 'agent' && m.text === 'refined takes'));
+	assert.equal(project.generations.length, 3);
+	assert.equal(project.sessions.length, 2);
+	assert.ok(project.messages.some((m) => m.from === 'agent' && m.text === 'refined takes' && m.sessionId === drop.sessionId));
+	assert.ok(!(await api('GET', `/api/projects/${drop.projectId}/messages?session=${other.sessionId}`)).some((m) => m.text === 'love B2'));
 
 	const template = await api('GET', `/api/projects/${drop.projectId}/generations/${drop.generationId}/variants/0/elementor?sliced=1`);
 	assert.equal(template.content.length, 2);

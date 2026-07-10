@@ -33,6 +33,7 @@ export function createEngine(deps) {
 			createdAt: nowIso(),
 			kind,
 			mode,
+			sessionId: (project.sessions || []).some((s) => s.id === opts.sessionId) ? opts.sessionId : null,
 			prompt: String(opts.prompt || '').slice(0, 8000),
 			provider: provider.id,
 			model: opts.model || null,

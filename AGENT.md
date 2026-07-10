@@ -1,102 +1,85 @@
 # Fabma — instructions for AI agents
 
 You are a coding/design agent (Claude Code, Codex, etc.). Fabma is a local
-design gallery where your human picks between design variants you made and
-leaves pinned comments. This file tells you how to drive it. The human sees
-everything in the Fabma app (or a browser); you talk to a local HTTP API.
+app where your human reviews design variants you made: they compare, pin
+comments on the designs, reply in a discussion, and pick one. You talk to a
+local HTTP API at `http://localhost:4011`; the human sees everything in the
+Fabma app.
 
-(Humans: `fabma skill install [--codex]` teaches your agents this protocol
-permanently — a Claude Code skill plus an optional ~/.codex/AGENTS.md section.)
+(Humans: click **Teach my agents** in the app — or run
+`fabma skill install --codex` from a checkout — to install this protocol
+permanently.)
 
-Base URL: `http://localhost:4011` (default port).
+## The flow
 
-## The loop — a conversation, not a one-shot
+1. **Health**: `GET /api/health` — `"flavor":"desktop"` means the app is open
+   and sessions appear in it automatically. Not running? macOS `open -a Fabma`,
+   or from a checkout `node bin/fabma.js --no-open &`.
+2. **Project**: `GET /api/projects`. If one matches this codebase/feature,
+   **ask the human** whether to use it; otherwise
+   `POST /api/projects {"name","brief"}`. For throwaway one-offs skip this —
+   a drop without `projectId` creates a disposable project.
+3. **Context**: `GET /api/projects/<id>` — every session, generation,
+   decision, pinned comment, and absolute file `path`s. Read earlier sessions
+   before proposing; don't re-pitch what the human already rejected.
+4. **Drop a session** (1–8 self-contained HTML variants):
 
-1. You design N variants as **self-contained HTML files** (inline `<style>`,
-   no external assets except Google Fonts links, imagery as inline SVG/CSS).
-2. You push them into a session. Your `note` shows up in the session's
-   **discussion thread** — write it to the human ("Three takes: calm,
-   editorial, bold. B is my favorite.").
-3. The human compares variants, pins comments on the designs, may reply in
-   the discussion, and clicks **Decide**.
-4. You read the decision and continue — and when you iterate, **drop the
-   next round into the SAME session** (`projectId` / `--session`) so the
-   whole exchange stays one thread the human can scroll.
-5. Between rounds you can post/read discussion messages any time — treat
-   human messages as direction.
+   ```bash
+   curl -s -X POST http://localhost:4011/api/drop \
+     -H 'content-type: application/json' \
+     -d '{"projectId":"<id, or omit>",
+          "sessionId":"<only for round 2+ of a session>",
+          "title":"Header options",
+          "note":"Three takes — B is my favorite.",
+          "variants":[{"name":"Calm","html":"<!doctype html>…"}]}'
+   # → { projectId, sessionId, generationId, url, feedbackUrl, messagesUrl }
+   ```
 
-The human usually runs the Fabma desktop app — it hosts this API and shows
-new sessions by itself the moment you create one. Plain HTTP is all you need.
+   Your `note` appears in the session's discussion — write it to the human.
+5. **Let the human review — two modes**:
+   - **Deferred (default)**: say *"I dropped 3 options into Fabma — pick one,
+     pin comments, reply there, then tell me to continue"* and END YOUR TURN.
+     When they say "continue": `GET <feedbackUrl>` and
+     `GET <messagesUrl>?session=<sessionId>`.
+   - **Blocking**: `GET <feedbackUrl>?wait=55` in a loop (or the CLI's
+     `--wait`) — only when they said they'll decide right now.
+6. **Iterate in the same session** (`sessionId`) so the exchange stays one
+   thread. Post progress via
+   `POST <messagesUrl> {"from":"agent","text":"…","sessionId":"<sid>"}`;
+   treat human replies as direction.
 
-## Raw HTTP way (works everywhere)
+The feedback JSON: `decision.variant` (0-based), `decision.note`, and
+per-variant `comments` — each `{text, x, y}` with `x`/`y` as percentages from
+the canvas's left/top: located feedback on that exact spot.
 
-```bash
-# is it running? ("flavor":"desktop" means the human has the app open)
-curl -s http://localhost:4011/api/health
-# not running and you have a fabma checkout: `node bin/fabma.js --no-open &`
-
-# push variants (round 1 — creates the session)
-curl -s -X POST http://localhost:4011/api/drop \
-  -H 'content-type: application/json' \
-  -d '{"title":"Header options","note":"Pick a direction","variants":[{"name":"Calm","html":"<!doctype html>…"},{"name":"Bold","html":"<!doctype html>…"}]}'
-# → { "projectId": "…", "url": "…", "feedbackUrl": "…", "messagesUrl": "…" }
-
-# wait for the verdict (long-polls up to 55s per call; repeat until decided)
-curl -s "<feedbackUrl>?wait=55"
-# → { "status": "decided",
-#     "decision": { "variant": 1, "note": "this one, but calmer header", "decidedAt": "…" },
-#     "variants": [ { "index": 0, "comments": [ { "text": "too dense", "x": 22, "y": 61 } ] }, … ] }
-
-# round 2 goes into the SAME session: add "projectId" to the drop body
-# (with the CLI: fabma drop ... --session <projectId>)
-
-# discuss: post a message; read replies (?after=<lastSeenId>&wait=55 long-polls)
-curl -s -X POST <messagesUrl> -H 'content-type: application/json' \
-  -d '{"from":"agent","text":"Applied your pins — two takes on the calmer header."}'
-curl -s "<messagesUrl>?after=<lastSeenId>&wait=55"
-```
-
-Comment coordinates `x`/`y` are percentages of the design canvas (from left
-and top) — use them to locate what the human pointed at.
-
-Tell the human something like: *"I dropped 3 header options into Fabma —
-pick one and pin comments, I'm waiting."* If `flavor` was NOT `desktop`,
-also open the session `url` in their browser.
-
-## One-command way (if you have the fabma checkout / CLI)
+## CLI shortcut (from a fabma checkout)
 
 ```bash
-fabma drop header-a.html header-b.html header-c.html \
-  --title "Dashboard header options" \
-  --note "Which direction for the new header?" \
-  --wait
+node <fabma>/bin/fabma.js drop a.html b.html c.html \
+  --project <projectId> --title "Header options" --note "…" \
+  [--session <sessionId>] [--wait]
 ```
 
-- Starts the server if it isn't running; brings the desktop app to the
-  front (or opens the browser).
-- `--wait` blocks until the human decides, then prints the decision JSON
-  (picked variant index, their note, and every comment) to stdout.
-
-## Full generation API (optional)
-
-Fabma can also run generations itself by spawning `claude`/`codex` CLIs. You
-normally don't need this — you ARE the agent — but a human may drive it, or
-you can trigger it:
-
-- `POST /api/projects` `{name, brief, mode: page|section|illustration}`
-- `POST /api/projects/:pid/generations` `{prompt?, count, provider: claude-cli|codex-cli|anthropic-api, parent?, directionIds?}`
-- `GET  /api/projects/:pid` — full tree including per-variant `path` (absolute
-  file path — you can read/edit variant files directly on disk)
-- `POST /api/projects/:pid/import` — screenshots (png/jpg) and/or HTML/SVG as
-  `{files:[{name, dataBase64}], note}`; useful to seed a session with the
-  real app's current look before proposing changes.
+Starts the server if needed, surfaces the app, prints ids + URLs (and with
+`--wait`, blocks and prints the decision JSON).
 
 ## Rules for the HTML you drop
 
-- One self-contained document per variant; everything inline.
-- No network calls: previews run under a CSP that blocks everything except
-  Google Fonts. No external images/scripts — inline SVG and CSS only.
-- Design desktop-first at 1440px; keep it sane down to 390px.
-- If you are mocking changes to a real app, reproduce the app's current look
-  faithfully and change only what you're proposing; label variants clearly
-  via the `name` field.
+- One self-contained document per variant: `<style>` inline, no external
+  assets except Google Fonts links, imagery as inline SVG/CSS. No network
+  calls — previews run under a CSP that blocks them.
+- Desktop-first at 1440px; sane down to 390px. No JavaScript unless the
+  design is meaningless without it. Real copy, never lorem ipsum.
+- Name variants meaningfully — the name is their gallery label.
+- Mocking a real app? Import a screenshot as baseline
+  (`POST /api/projects/<id>/import {"files":[{name, dataBase64}], note}`),
+  reproduce the current look faithfully, and change only what you propose.
+
+## Also available
+
+- Fabma can generate designs itself by spawning `claude`/`codex`:
+  `POST /api/projects/<id>/generations {prompt?, count, provider:
+  "claude-cli"|"codex-cli"|"anthropic-api", sessionId?, parent?, directionIds?}`.
+- Exports per variant (HTML file, Elementor template/embed, SVG) hang off
+  `/api/projects/<pid>/generations/<gid>/variants/<i>/…` — the human usually
+  triggers these from the UI.

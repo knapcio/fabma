@@ -103,9 +103,9 @@ async function boot() {
 }
 
 async function route() {
-	const match = location.hash.match(/^#\/p\/([a-z0-9]+)/);
+	const match = location.hash.match(/^#\/p\/([a-z0-9]+)(?:\/s\/([a-z0-9]+))?/);
 	if (match) {
-		await openProject(match[1]);
+		await openProject(match[1], { sessionId: match[2] });
 	} else {
 		state.project = null;
 		state.selection = null;
@@ -113,21 +113,35 @@ async function route() {
 	}
 }
 
-async function openProject(pid, keepSelection = false) {
+const gensOf = (project, sessionId) =>
+	project.generations.filter((g) => (g.sessionId || null) === (sessionId || null));
+
+async function openProject(pid, { keepSelection = false, sessionId } = {}) {
 	try {
 		const fresh = await api('GET', `/api/projects/${pid}`);
 		const isSame = state.project?.id === fresh.id;
 		state.project = fresh;
+		const sessions = fresh.sessions || [];
 		if (!isSame) {
-			state.activeGenId = fresh.generations.at(-1)?.id || null;
+			state.activeSessionId = sessionId || sessions.at(-1)?.id || null;
 			state.selection = null;
 		} else {
-			if (!fresh.generations.find((g) => g.id === state.activeGenId)) {
-				state.activeGenId = fresh.generations.at(-1)?.id || null;
+			if (sessionId) state.activeSessionId = sessionId;
+			if (state.activeSessionId && !sessions.some((s) => s.id === state.activeSessionId)) {
+				state.activeSessionId = sessions.at(-1)?.id || null;
 			}
 			if (!keepSelection) {
 				const sel = state.selection;
 				if (sel && !fresh.generations.find((g) => g.id === sel.genId)?.variants[sel.index]) state.selection = null;
+			}
+		}
+		// The active generation must belong to the active session.
+		const activeGen = fresh.generations.find((g) => g.id === state.activeGenId);
+		if (!activeGen || (activeGen.sessionId || null) !== (state.activeSessionId || null)) {
+			state.activeGenId = (gensOf(fresh, state.activeSessionId).at(-1) || fresh.generations.at(-1))?.id || null;
+			if (state.activeGenId) {
+				const fallbackGen = fresh.generations.find((g) => g.id === state.activeGenId);
+				state.activeSessionId = fallbackGen?.sessionId || state.activeSessionId;
 			}
 		}
 		render();
@@ -142,7 +156,7 @@ function scheduleRefresh() {
 	clearTimeout(refreshTimer);
 	refreshTimer = setTimeout(async () => {
 		state.projects = await api('GET', '/api/projects').catch(() => state.projects);
-		if (state.project) await openProject(state.project.id, true).catch(() => {});
+		if (state.project) await openProject(state.project.id, { keepSelection: true }).catch(() => {});
 		else render();
 	}, 250);
 }
@@ -156,12 +170,15 @@ function connectSse() {
 		const data = JSON.parse(event.data);
 		// In the desktop app, a fresh agent drop takes the stage by itself —
 		// the human should just see the options appear.
-		if (IS_DESKTOP && data.type === 'generation' && data.projectId !== state.project?.id
-			&& !state.projects.some((p) => p.id === data.projectId)) {
-			state.projects = await api('GET', '/api/projects').catch(() => state.projects);
-			if (state.projects.some((p) => p.id === data.projectId && p.ephemeral)) {
-				location.hash = `#/p/${data.projectId}`;
-				return;
+		if (IS_DESKTOP && data.type === 'generation' && data.sessionId) {
+			if (data.projectId === state.project?.id) {
+				state.activeSessionId = data.sessionId;
+			} else if (!state.projects.some((p) => p.id === data.projectId)) {
+				state.projects = await api('GET', '/api/projects').catch(() => state.projects);
+				if (state.projects.some((p) => p.id === data.projectId && p.ephemeral)) {
+					location.hash = `#/p/${data.projectId}/s/${data.sessionId}`;
+					return;
+				}
 			}
 		}
 		if (data.type === 'convert') {
@@ -201,26 +218,29 @@ function renderRail() {
 			project.ephemeral ? el('span', { class: 'badge ember', style: 'margin-left:8px' }, 'agent') : null));
 		rail.append(el('div', { class: 'rail-project-brief', title: project.brief }, project.brief));
 
-		const list = el('div', { class: 'rail-section' }, el('div', { class: 'rail-label' }, 'Generations'));
-		const depth = genDepths(project);
-		for (const gen of project.generations) {
-			const isActive = gen.id === state.activeGenId;
-			const doneCount = gen.variants.filter((v) => v.status === 'done').length;
-			const label = gen.kind === 'import' ? 'Imported'
-				: gen.kind === 'drop' ? `Agent drop · ${gen.variants.length} options`
-					: gen.kind === 'refine' ? `Refine of ${parentLabel(project, gen)}`
-						: 'From the brief';
-			const node = el('div', { class: 'gen-node', style: `--depth:${depth.get(gen.id) || 0}` },
-				el('div', {
-					class: `rail-item ${isActive ? 'active' : ''}`,
-					onclick: () => { state.activeGenId = gen.id; state.selection = null; render(); },
+		const list = el('div', { class: 'rail-section' });
+		const sessions = project.sessions || [];
+		if (sessions.length) {
+			list.append(el('div', { class: 'rail-label' }, 'Sessions'));
+			for (const session of sessions) {
+				const gens = gensOf(project, session.id);
+				const isActive = state.activeSessionId === session.id;
+				const lastDecided = [...gens].reverse().find((g) => g.decision);
+				const scopedMessages = (project.messages || []).filter((m) => m.sessionId === session.id);
+				list.append(el('div', {
+					class: `rail-item session ${isActive ? 'active' : ''}`,
+					onclick: () => selectSession(project, session.id),
 				},
-				el('div', { class: 'name' },
-					el('span', { class: `gen-status ${gen.status}` }, gen.status === 'running' ? '◐' : gen.status === 'done' ? '●' : gen.status === 'partial' ? '◑' : gen.kind === 'import' || gen.kind === 'drop' ? '●' : '○'),
-					label,
-					gen.decision ? el('span', { class: 'badge ember' }, `picked v${gen.decision.variant + 1}`) : null),
-				el('div', { class: 'meta' }, [gen.prompt?.slice(0, 60), `${doneCount}/${gen.variants.length}`, timeAgo(gen.createdAt)].filter(Boolean).join(' · '))));
-			list.append(node);
+				el('div', { class: 'name' }, session.title,
+					lastDecided ? el('span', { class: 'badge ember' }, `picked v${lastDecided.decision.variant + 1}`) : null),
+				el('div', { class: 'meta' }, [`${gens.length} round${gens.length === 1 ? '' : 's'}`, scopedMessages.length ? `${scopedMessages.length} msg` : null, timeAgo(session.createdAt)].filter(Boolean).join(' · '))));
+				if (isActive) for (const gen of gens) list.append(genNode(project, gen, 1));
+			}
+		}
+		const loose = gensOf(project, null);
+		if (loose.length || !sessions.length) {
+			list.append(el('div', { class: 'rail-label' }, 'Playground'));
+			for (const gen of loose) list.append(genNode(project, gen, 0));
 		}
 		rail.append(list);
 		rail.append(el('div', { class: 'rail-footer' },
@@ -247,6 +267,38 @@ function parentLabel(project, gen) {
 	return `v${gen.parent.variant + 1}`;
 }
 
+function selectSession(project, sessionId) {
+	state.activeSessionId = sessionId;
+	state.activeGenId = gensOf(project, sessionId).at(-1)?.id || null;
+	state.selection = null;
+	render();
+}
+
+function genNode(project, gen, baseDepth) {
+	const isActive = gen.id === state.activeGenId;
+	const doneCount = gen.variants.filter((v) => v.status === 'done').length;
+	const label = gen.kind === 'import' ? 'Imported'
+		: gen.kind === 'drop' ? `${gen.variants.length} option${gen.variants.length === 1 ? '' : 's'}`
+			: gen.kind === 'refine' ? `Refine of ${parentLabel(project, gen)}`
+				: 'From the brief';
+	const depth = (genDepths(project).get(gen.id) || 0) + baseDepth;
+	return el('div', { class: 'gen-node', style: `--depth:${depth}` },
+		el('div', {
+			class: `rail-item ${isActive ? 'active' : ''}`,
+			onclick: () => {
+				state.activeGenId = gen.id;
+				state.activeSessionId = gen.sessionId || state.activeSessionId;
+				state.selection = null;
+				render();
+			},
+		},
+		el('div', { class: 'name' },
+			el('span', { class: `gen-status ${gen.status}` }, gen.status === 'running' ? '◐' : gen.status === 'done' ? '●' : gen.status === 'partial' ? '◑' : gen.kind === 'import' || gen.kind === 'drop' ? '●' : '○'),
+			label,
+			gen.decision ? el('span', { class: 'badge ember' }, `picked v${gen.decision.variant + 1}`) : null),
+		el('div', { class: 'meta' }, [gen.prompt?.slice(0, 60), `${doneCount}/${gen.variants.length}`, timeAgo(gen.createdAt)].filter(Boolean).join(' · '))));
+}
+
 function genDepths(project) {
 	const depth = new Map();
 	for (const gen of project.generations) {
@@ -271,8 +323,8 @@ function renderMain() {
 	const project = state.project;
 	const gen = project.generations.find((g) => g.id === state.activeGenId);
 
-	const messages = project.messages || [];
-	const threadOpen = state.threadPref ?? (project.ephemeral && messages.length > 0);
+	const messages = (project.messages || []).filter((m) => (m.sessionId || null) === (state.activeSessionId || null));
+	const threadOpen = state.threadPref ?? (!!state.activeSessionId && messages.length > 0);
 
 	main.append(el('div', { class: 'topbar' },
 		el('h1', {}, project.name),
@@ -301,13 +353,14 @@ function renderMain() {
 }
 
 function renderThread(project) {
+	const scoped = (project.messages || []).filter((m) => (m.sessionId || null) === (state.activeSessionId || null));
 	const list = el('div', { class: 'thread-list' });
-	for (const message of project.messages || []) {
+	for (const message of scoped) {
 		list.append(el('div', { class: `msg ${message.from}` },
 			el('div', { class: 'msg-meta' }, message.from === 'agent' ? 'agent' : 'you', ' · ', timeAgo(message.at)),
 			el('div', { class: 'msg-text' }, message.text)));
 	}
-	if (!(project.messages || []).length) {
+	if (!scoped.length) {
 		list.append(el('div', { class: 'hint', style: 'padding:8px 2px' },
 			'The conversation with your agent lives here — its round notes arrive automatically, and your replies are readable by the agent.'));
 	}
@@ -315,7 +368,11 @@ function renderThread(project) {
 	input.addEventListener('keydown', async (event) => {
 		if (event.key !== 'Enter' || !input.value.trim()) return;
 		try {
-			await api('POST', `/api/projects/${project.id}/messages`, { from: 'human', text: input.value.trim() });
+			await api('POST', `/api/projects/${project.id}/messages`, {
+				from: 'human',
+				text: input.value.trim(),
+				sessionId: state.activeSessionId || undefined,
+			});
 			input.value = '';
 			scheduleRefresh();
 		} catch (err) { fail(err); }
@@ -716,8 +773,10 @@ function dockRow(project, onGenerate, refine) {
 async function generate(opts) {
 	if (!state.settings.provider) return toast('No provider available — install/log in to Claude Code or Codex, or set ANTHROPIC_API_KEY', 'err');
 	try {
+		const parentGen = opts.parent && state.project.generations.find((g) => g.id === opts.parent.generationId);
 		const generation = await api('POST', `/api/projects/${state.project.id}/generations`, {
 			...opts,
+			sessionId: (parentGen ? parentGen.sessionId : state.activeSessionId) || undefined,
 			provider: state.settings.provider,
 			model: state.settings.model || undefined,
 		});
@@ -852,10 +911,21 @@ function renderWelcome() {
 		el('span', { html: SPARK, class: 'spark' }),
 		el('h1', {}, 'Your agent designs. ', el('em', {}, 'You decide.')),
 		el('p', {}, 'Ask Claude Code or Codex for design options in any chat — sessions appear here by themselves. Compare the variants, pin comments on the designs, reply in the discussion, pick a winner. Your agent is waiting on your verdict and continues the moment you decide.'),
-		el('pre', { html: `you: "give me 3 directions for the pricing header"\nagent: designs them, runs <b>fabma drop</b> a.html b.html c.html <b>--wait</b>\nyou: pick · pin comments · decide — right here\nagent: gets your verdict as JSON and keeps working\n\n<span style="opacity:.6">teach your agent once:  <b>fabma skill install --codex</b>   (or point it at /agent.md)</span>` }),
+		el('pre', { html: `you: "give me 3 directions for the pricing header"\nagent: designs them, drops a session in here, ends its turn\nyou: pick · pin comments · reply — on your own clock\nyou: "continue" → agent reads your verdict and keeps working` }),
+		el('div', { style: 'display:flex;gap:8px;align-items:center' },
+			el('button', {
+				class: 'btn primary',
+				onclick: async () => {
+					try {
+						const result = await api('POST', '/api/skill/install', {});
+						for (const line of result.results) toast(line, 'ok');
+					} catch (err) { fail(err); }
+				},
+			}, '✳ Teach my agents'),
+			el('span', { class: 'hint' }, 'installs the skill for Claude Code + Codex on this Mac — one time')),
 		none ? el('div', { class: 'warn' }, 'No provider detected. Install & log in to Claude Code or Codex, or set ANTHROPIC_API_KEY, then restart fabma.') : null,
 		el('p', {}, 'You can also drive it yourself — brief in, art directions out, refine with pins:'),
-		el('div', {}, el('button', { class: 'btn', onclick: newProjectModal }, '✳ New project'))));
+		el('div', {}, el('button', { class: 'btn', onclick: newProjectModal }, '＋ New project'))));
 }
 
 /* ---------- elapsed timers ---------- */

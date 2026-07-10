@@ -1,6 +1,6 @@
 {
 	"name": "fabma",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "AI-native design playground — brief in, art directions out. Pick, comment, refine. Export HTML, SVG, or Elementor templates.",
 	"license": "MIT",
 	"type": "module",

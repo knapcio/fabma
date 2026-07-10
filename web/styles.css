@@ -109,6 +109,8 @@ a { color: inherit; }
 .rail-item:hover { background: var(--panel-2); }
 .rail-item.active { background: var(--panel); border-color: var(--line); box-shadow: var(--shadow-sm); }
 
+.rail-item.session .name { font-weight: 600; }
+
 .rail-item .name {
 	font-weight: 500;
 	white-space: nowrap;

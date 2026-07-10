@@ -10,6 +10,7 @@ import { DIRECTIONS } from './prompts.js';
 import { exportBlob, exportTemplate } from './exporters/elementor.js';
 import { extractSvg } from './exporters/svg.js';
 import { ensureDocument, extOf, id, isSafeId, nowIso, Semaphore, SseHub } from './util.js';
+import { installSkill } from './skill.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const IMPORT_KINDS = { '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.webp': 'image', '.svg': 'svg', '.html': 'html', '.htm': 'html' };
@@ -56,7 +57,7 @@ export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011
 		next();
 	});
 
-	app.get('/api/health', (req, res) => res.json({ ok: true, workspace: store.root, version: '0.2.0', flavor }));
+	app.get('/api/health', (req, res) => res.json({ ok: true, workspace: store.root, version: '0.3.0', flavor }));
 	app.get('/api/providers', async (req, res) => res.json(await detectProviders()));
 	app.get('/api/directions', (req, res) => res.json(DIRECTIONS.map(({ id: did, label, hint }) => ({ id: did, label, hint }))));
 	app.get('/api/events', sse.handler);
@@ -88,17 +89,18 @@ export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011
 	app.get('/api/projects', (req, res) => res.json(store.listProjects()));
 	app.post('/api/projects', (req, res) => res.status(201).json(store.createProject(req.body || {})));
 
-	// Agent entry point: push ready-made HTML variants, get a gallery URL for
-	// the human, then poll /feedback (or ?wait=) for their decision. Pass
-	// projectId to add a new round to an existing session instead.
+	// Agent entry point: push ready-made HTML variants into a session, get a
+	// gallery URL for the human, then read /feedback for their decision.
+	// projectId targets an existing project (omit = disposable one); sessionId
+	// adds a round to an existing session (omit = new session).
 	app.post('/api/drop', (req, res, next) => {
-		const { title, note, variants = [], projectId } = req.body || {};
+		const { title, note, variants = [], projectId, sessionId } = req.body || {};
 		if (!variants.length || variants.length > 8) return next(httpError(400, 'Drop expects 1–8 variants: [{ name?, html }]'));
 		let project;
 		if (projectId) {
 			if (!isSafeId(projectId)) return next(httpError(400, 'Bad projectId'));
 			project = store.getProject(projectId);
-			if (!project) return next(httpError(404, 'Session not found'));
+			if (!project) return next(httpError(404, 'Project not found'));
 		} else {
 			project = store.createProject({
 				name: title || `Agent session ${new Date().toLocaleString()}`,
@@ -106,11 +108,25 @@ export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011
 				ephemeral: true,
 			});
 		}
+		project.sessions ||= [];
+		let session;
+		if (sessionId) {
+			session = project.sessions.find((s) => s.id === sessionId);
+			if (!session) return next(httpError(404, 'Session not found in this project'));
+		} else {
+			session = {
+				id: id(10),
+				title: String(title || `Session ${project.sessions.length + 1}`).slice(0, 120),
+				createdAt: nowIso(),
+			};
+			project.sessions.push(session);
+		}
 		const generation = {
 			id: id(10),
 			createdAt: nowIso(),
 			kind: 'drop',
 			mode: project.mode,
+			sessionId: session.id,
 			prompt: String(note || '').slice(0, 4000),
 			provider: null,
 			model: null,
@@ -135,19 +151,20 @@ export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011
 		// reads as the conversation it is.
 		if (note) {
 			project.messages ||= [];
-			project.messages.push({ id: id(8), from: 'agent', text: String(note).slice(0, 4000), at: nowIso() });
+			project.messages.push({ id: id(8), from: 'agent', sessionId: session.id, text: String(note).slice(0, 4000), at: nowIso() });
 			wakeWaiters(messageWaiters, project.id);
 		}
 		store.saveProject(project);
-		sse.emit({ type: 'generation', projectId: project.id, generationId: generation.id, status: 'done' });
+		sse.emit({ type: 'generation', projectId: project.id, generationId: generation.id, sessionId: session.id, status: 'done' });
 		const base = `${req.protocol}://${req.get('host')}`;
 		res.status(201).json({
 			projectId: project.id,
+			sessionId: session.id,
 			generationId: generation.id,
-			url: `${base}/#/p/${project.id}`,
+			url: `${base}/#/p/${project.id}/s/${session.id}`,
 			feedbackUrl: `${base}/api/projects/${project.id}/generations/${generation.id}/feedback`,
 			messagesUrl: `${base}/api/projects/${project.id}/messages`,
-			hint: 'Open `url` for the human. GET feedbackUrl?wait=55 long-polls until they decide. Drop again with projectId to add a round to this same session.',
+			hint: 'Show `url` to the human. Read feedbackUrl for their decision (?wait=55 long-polls). Drop again with projectId+sessionId to add a round to this session.',
 		});
 	});
 
@@ -156,17 +173,22 @@ export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011
 		const text = String(req.body?.text || '').trim().slice(0, 4000);
 		if (!text) return next(httpError(400, 'Message text is required'));
 		const message = { id: id(8), from: req.body?.from === 'agent' ? 'agent' : 'human', text, at: nowIso() };
+		if (req.body.sessionId) {
+			if (!(req.project.sessions || []).some((s) => s.id === req.body.sessionId)) return next(httpError(404, 'Session not found in this project'));
+			message.sessionId = req.body.sessionId;
+		}
 		req.project.messages ||= [];
 		req.project.messages.push(message);
 		store.saveProject(req.project);
-		sse.emit({ type: 'message', projectId: req.project.id, from: message.from });
+		sse.emit({ type: 'message', projectId: req.project.id, sessionId: message.sessionId || null, from: message.from });
 		wakeWaiters(messageWaiters, req.project.id);
 		res.status(201).json(message);
 	});
 
 	app.get('/api/projects/:pid/messages', async (req, res) => {
 		const newer = () => {
-			const all = store.getProject(req.project.id)?.messages || [];
+			let all = store.getProject(req.project.id)?.messages || [];
+			if (req.query.session) all = all.filter((m) => m.sessionId === req.query.session);
 			if (!req.query.after) return all;
 			const at = all.findIndex((m) => m.id === req.query.after);
 			return at === -1 ? all : all.slice(at + 1);
@@ -383,6 +405,11 @@ export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011
 
 	app.get('/agent.md', (req, res) => {
 		res.type('text/markdown').send(fs.readFileSync(path.join(__dirname, '..', 'AGENT.md'), 'utf8'));
+	});
+	// One-click agent onboarding from the UI — writes the Claude Code skill
+	// and (unless codex:false) a ~/.codex/AGENTS.md block on this machine.
+	app.post('/api/skill/install', (req, res) => {
+		res.json({ ok: true, results: installSkill(path.join(__dirname, '..'), { codex: req.body?.codex !== false }) });
 	});
 	app.use(express.static(path.join(__dirname, '..', 'web')));
 	app.use('/examples', express.static(path.join(__dirname, '..', 'examples')));
