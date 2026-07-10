@@ -56,27 +56,56 @@ export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011
 		next();
 	});
 
-	app.get('/api/health', (req, res) => res.json({ ok: true, workspace: store.root, version: '0.1.0', flavor }));
+	app.get('/api/health', (req, res) => res.json({ ok: true, workspace: store.root, version: '0.2.0', flavor }));
 	app.get('/api/providers', async (req, res) => res.json(await detectProviders()));
 	app.get('/api/directions', (req, res) => res.json(DIRECTIONS.map(({ id: did, label, hint }) => ({ id: did, label, hint }))));
 	app.get('/api/events', sse.handler);
 
-	// Waiters for agents long-polling a human decision.
+	// Waiters for agents long-polling a human decision or new messages.
 	const decisionWaiters = new Map(); // generationId -> Set<() => void>
+	const messageWaiters = new Map(); // projectId -> Set<() => void>
+
+	function parkWaiter(map, key, seconds, res) {
+		return new Promise((resolve) => {
+			const set = map.get(key) || new Set();
+			map.set(key, set);
+			const timer = setTimeout(done, seconds * 1000);
+			function done() {
+				clearTimeout(timer);
+				set.delete(done);
+				resolve();
+			}
+			set.add(done);
+			res.on('close', done);
+		});
+	}
+
+	function wakeWaiters(map, key) {
+		for (const wake of map.get(key) || []) wake();
+		map.delete(key);
+	}
 
 	app.get('/api/projects', (req, res) => res.json(store.listProjects()));
 	app.post('/api/projects', (req, res) => res.status(201).json(store.createProject(req.body || {})));
 
 	// Agent entry point: push ready-made HTML variants, get a gallery URL for
-	// the human, then poll /feedback (or ?wait=) for their decision.
+	// the human, then poll /feedback (or ?wait=) for their decision. Pass
+	// projectId to add a new round to an existing session instead.
 	app.post('/api/drop', (req, res, next) => {
-		const { title, note, variants = [] } = req.body || {};
+		const { title, note, variants = [], projectId } = req.body || {};
 		if (!variants.length || variants.length > 8) return next(httpError(400, 'Drop expects 1–8 variants: [{ name?, html }]'));
-		const project = store.createProject({
-			name: title || `Agent session ${new Date().toLocaleString()}`,
-			brief: note || title || 'Variants dropped by an agent',
-			ephemeral: true,
-		});
+		let project;
+		if (projectId) {
+			if (!isSafeId(projectId)) return next(httpError(400, 'Bad projectId'));
+			project = store.getProject(projectId);
+			if (!project) return next(httpError(404, 'Session not found'));
+		} else {
+			project = store.createProject({
+				name: title || `Agent session ${new Date().toLocaleString()}`,
+				brief: note || title || 'Variants dropped by an agent',
+				ephemeral: true,
+			});
+		}
 		const generation = {
 			id: id(10),
 			createdAt: nowIso(),
@@ -102,6 +131,13 @@ export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011
 		variants.forEach((v, index) => {
 			store.writeVariantFile(project.id, generation.id, `v${index + 1}.html`, ensureDocument(String(v.html || '')));
 		});
+		// The round note doubles as an agent message, so the session thread
+		// reads as the conversation it is.
+		if (note) {
+			project.messages ||= [];
+			project.messages.push({ id: id(8), from: 'agent', text: String(note).slice(0, 4000), at: nowIso() });
+			wakeWaiters(messageWaiters, project.id);
+		}
 		store.saveProject(project);
 		sse.emit({ type: 'generation', projectId: project.id, generationId: generation.id, status: 'done' });
 		const base = `${req.protocol}://${req.get('host')}`;
@@ -110,8 +146,38 @@ export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011
 			generationId: generation.id,
 			url: `${base}/#/p/${project.id}`,
 			feedbackUrl: `${base}/api/projects/${project.id}/generations/${generation.id}/feedback`,
-			hint: 'Open `url` for the human. GET feedbackUrl?wait=55 long-polls until they decide.',
+			messagesUrl: `${base}/api/projects/${project.id}/messages`,
+			hint: 'Open `url` for the human. GET feedbackUrl?wait=55 long-polls until they decide. Drop again with projectId to add a round to this same session.',
 		});
+	});
+
+	// The session thread — how AI and human discuss the designs in place.
+	app.post('/api/projects/:pid/messages', (req, res, next) => {
+		const text = String(req.body?.text || '').trim().slice(0, 4000);
+		if (!text) return next(httpError(400, 'Message text is required'));
+		const message = { id: id(8), from: req.body?.from === 'agent' ? 'agent' : 'human', text, at: nowIso() };
+		req.project.messages ||= [];
+		req.project.messages.push(message);
+		store.saveProject(req.project);
+		sse.emit({ type: 'message', projectId: req.project.id, from: message.from });
+		wakeWaiters(messageWaiters, req.project.id);
+		res.status(201).json(message);
+	});
+
+	app.get('/api/projects/:pid/messages', async (req, res) => {
+		const newer = () => {
+			const all = store.getProject(req.project.id)?.messages || [];
+			if (!req.query.after) return all;
+			const at = all.findIndex((m) => m.id === req.query.after);
+			return at === -1 ? all : all.slice(at + 1);
+		};
+		let messages = newer();
+		const waitSeconds = Math.min(60, Number(req.query.wait) || 0);
+		if (!messages.length && waitSeconds > 0) {
+			await parkWaiter(messageWaiters, req.project.id, waitSeconds, res);
+			messages = newer();
+		}
+		res.json(messages);
 	});
 	app.get('/api/projects/:pid', (req, res) => res.json(withPaths(store, req.project)));
 	app.delete('/api/projects/:pid', (req, res) => {
@@ -145,26 +211,14 @@ export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011
 		};
 		store.saveProject(req.project);
 		sse.emit({ type: 'decision', projectId: req.project.id, generationId: req.generation.id });
-		for (const wake of decisionWaiters.get(req.generation.id) || []) wake();
-		decisionWaiters.delete(req.generation.id);
+		wakeWaiters(decisionWaiters, req.generation.id);
 		res.json(req.generation.decision);
 	});
 
 	app.get('/api/projects/:pid/generations/:gid/feedback', async (req, res) => {
 		const waitSeconds = Math.min(60, Number(req.query.wait) || 0);
 		if (waitSeconds > 0 && !req.generation.decision) {
-			await new Promise((resolve) => {
-				const set = decisionWaiters.get(req.generation.id) || new Set();
-				decisionWaiters.set(req.generation.id, set);
-				const timer = setTimeout(done, waitSeconds * 1000);
-				function done() {
-					clearTimeout(timer);
-					set.delete(done);
-					resolve();
-				}
-				set.add(done);
-				res.on('close', done);
-			});
+			await parkWaiter(decisionWaiters, req.generation.id, waitSeconds, res);
 		}
 		const fresh = store.findGeneration(store.getProject(req.project.id), req.generation.id) || req.generation;
 		res.json({

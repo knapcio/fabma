@@ -13,8 +13,8 @@ if (args.includes('--help') || args.includes('-h')) {
 
   Usage
     fabma [workspace] [options]           start the playground
-    fabma drop <files...> [options]       push HTML variants into a fresh
-                                          session (starts the server if needed)
+    fabma drop <files...> [options]       push HTML variants into a session
+                                          (starts the server if needed)
     fabma skill install [--codex]         teach your agents to use fabma:
                                           installs the Claude Code skill, and
                                           with --codex adds a section to
@@ -28,7 +28,8 @@ if (args.includes('--help') || args.includes('-h')) {
 
   Drop options (for agents and scripts)
     --title <text>    Session title shown to the human
-    --note <text>     What you want feedback on
+    --note <text>     What you want feedback on (appears in the discussion)
+    --session <id>    Add this round to an existing session instead of a new one
     --wait            Block until the human decides, print the decision JSON
     -p, --port <n>    Port of the running playground (default: 4011)
 
@@ -113,12 +114,14 @@ async function drop(rest) {
 	const files = [];
 	let title;
 	let note;
+	let session;
 	let wait = false;
 	let port = Number(process.env.FABMA_PORT) || 4011;
 	for (let i = 0; i < rest.length; i += 1) {
 		const arg = rest[i];
 		if (arg === '--title') title = rest[++i];
 		else if (arg === '--note') note = rest[++i];
+		else if (arg === '--session') session = rest[++i];
 		else if (arg === '--wait') wait = true;
 		else if (arg === '--port' || arg === '-p') port = Number(rest[++i]);
 		else files.push(arg);
@@ -135,27 +138,29 @@ async function drop(rest) {
 	const response = await fetch(`${base}/api/drop`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ title, note, variants }),
+		body: JSON.stringify({ title, note, variants, projectId: session }),
 	});
 	if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
-	const session = await response.json();
+	const dropped = await response.json();
 
-	console.log(`Session ready: ${session.url}`);
-	console.log(`Feedback:      ${session.feedbackUrl}`);
+	console.log(`Session:  ${dropped.projectId}   (reuse with --session ${dropped.projectId})`);
+	console.log(`URL:      ${dropped.url}`);
+	console.log(`Feedback: ${dropped.feedbackUrl}`);
+	console.log(`Messages: ${dropped.messagesUrl}`);
 
 	// If the Fabma desktop app is serving, it shows the session by itself —
 	// just bring it to front. Otherwise open the browser.
 	const health = await fetch(`${base}/api/health`).then((r) => r.json()).catch(() => ({}));
 	if (health.flavor === 'desktop' && process.platform === 'darwin') {
 		spawn('open', ['-a', 'Fabma'], { stdio: 'ignore', detached: true }).unref();
-	} else {
-		openBrowser(session.url);
+	} else if (!session) {
+		openBrowser(dropped.url);
 	}
 
 	if (!wait) return;
 	console.error('Waiting for the human to pick a variant…');
 	for (;;) {
-		const poll = await fetch(`${session.feedbackUrl}?wait=55`);
+		const poll = await fetch(`${dropped.feedbackUrl}?wait=55`);
 		const feedback = await poll.json();
 		if (feedback.status === 'decided') {
 			console.log(JSON.stringify(feedback, null, 2));

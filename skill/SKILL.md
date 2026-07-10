@@ -44,9 +44,16 @@ Fabma checkout on this machine: `{{FABMA_DIR}}`
    and per-variant `comments` — each `{text, x, y}` with `x`/`y` as
    percentages from the left/top of the canvas. Treat pins as precise,
    located feedback on that exact spot.
-5. **Continue**: implement the picked design, or apply the feedback and drop
-   a new round. Variant files live on disk under `~/Fabma/projects/…` (the
-   API returns absolute `path`s) if you want to read or reuse them.
+5. **Continue the conversation**: implement the picked design, or apply the
+   feedback and drop the next round **into the same session** with
+   `--session <projectId>` (the drop output prints it) — the whole exchange
+   stays one thread. Your `--note` appears in the session's discussion panel;
+   write it to the human. Variant files live on disk under `~/Fabma/projects/…`
+   (the API returns absolute `path`s) if you want to read or reuse them.
+6. **Discuss when useful**: the human can reply in the discussion panel.
+   Read replies with `curl -s "<messagesUrl>?after=<lastSeenId>&wait=55"` and
+   post your own with `POST <messagesUrl> {"from":"agent","text":"…"}`.
+   Treat human messages as direction.
 
 If `--wait` gets interrupted, re-poll: `curl -s "<feedbackUrl>?wait=55"`
 until `"status":"decided"` (the drop output printed `feedbackUrl`).

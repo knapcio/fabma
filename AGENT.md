@@ -10,15 +10,20 @@ permanently — a Claude Code skill plus an optional ~/.codex/AGENTS.md section.
 
 Base URL: `http://localhost:4011` (default port).
 
-## The loop
+## The loop — a conversation, not a one-shot
 
 1. You design N variants as **self-contained HTML files** (inline `<style>`,
    no external assets except Google Fonts links, imagery as inline SVG/CSS).
-2. You push them into a fresh session and open the gallery for the human.
-3. The human picks a variant, drops pinned comments, and clicks
-   **Decide** in the UI.
-4. You read the decision and continue — implement the picked design, or
-   iterate and drop again.
+2. You push them into a session. Your `note` shows up in the session's
+   **discussion thread** — write it to the human ("Three takes: calm,
+   editorial, bold. B is my favorite.").
+3. The human compares variants, pins comments on the designs, may reply in
+   the discussion, and clicks **Decide**.
+4. You read the decision and continue — and when you iterate, **drop the
+   next round into the SAME session** (`projectId` / `--session`) so the
+   whole exchange stays one thread the human can scroll.
+5. Between rounds you can post/read discussion messages any time — treat
+   human messages as direction.
 
 The human usually runs the Fabma desktop app — it hosts this API and shows
 new sessions by itself the moment you create one. Plain HTTP is all you need.
@@ -30,17 +35,25 @@ new sessions by itself the moment you create one. Plain HTTP is all you need.
 curl -s http://localhost:4011/api/health
 # not running and you have a fabma checkout: `node bin/fabma.js --no-open &`
 
-# push variants
+# push variants (round 1 — creates the session)
 curl -s -X POST http://localhost:4011/api/drop \
   -H 'content-type: application/json' \
   -d '{"title":"Header options","note":"Pick a direction","variants":[{"name":"Calm","html":"<!doctype html>…"},{"name":"Bold","html":"<!doctype html>…"}]}'
-# → { "url": "…open this for the human…", "feedbackUrl": "…" }
+# → { "projectId": "…", "url": "…", "feedbackUrl": "…", "messagesUrl": "…" }
 
 # wait for the verdict (long-polls up to 55s per call; repeat until decided)
 curl -s "<feedbackUrl>?wait=55"
 # → { "status": "decided",
 #     "decision": { "variant": 1, "note": "this one, but calmer header", "decidedAt": "…" },
 #     "variants": [ { "index": 0, "comments": [ { "text": "too dense", "x": 22, "y": 61 } ] }, … ] }
+
+# round 2 goes into the SAME session: add "projectId" to the drop body
+# (with the CLI: fabma drop ... --session <projectId>)
+
+# discuss: post a message; read replies (?after=<lastSeenId>&wait=55 long-polls)
+curl -s -X POST <messagesUrl> -H 'content-type: application/json' \
+  -d '{"from":"agent","text":"Applied your pins — two takes on the calmer header."}'
+curl -s "<messagesUrl>?after=<lastSeenId>&wait=55"
 ```
 
 Comment coordinates `x`/`y` are percentages of the design canvas (from left

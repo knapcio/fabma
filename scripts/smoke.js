@@ -45,6 +45,18 @@ try {
 	assert.equal(feedback.decision.variant, 1);
 	assert.equal(feedback.variants[1].comments[0].x, 33);
 
+	// Round 2 into the same session + the discussion thread.
+	const round2 = await api('POST', '/api/drop', { projectId: drop.projectId, note: 'refined takes', variants: [{ name: 'B2', html }] });
+	assert.equal(round2.projectId, drop.projectId);
+	const waitingMsg = api('GET', `/api/projects/${drop.projectId}/messages?wait=15&after=${(await api('GET', `/api/projects/${drop.projectId}/messages`)).at(-1).id}`);
+	await new Promise((resolve) => setTimeout(resolve, 200));
+	await api('POST', `/api/projects/${drop.projectId}/messages`, { from: 'human', text: 'love B2' });
+	const newMessages = await waitingMsg;
+	assert.equal(newMessages.at(-1).text, 'love B2');
+	const project = await api('GET', `/api/projects/${drop.projectId}`);
+	assert.equal(project.generations.length, 2);
+	assert.ok(project.messages.some((m) => m.from === 'agent' && m.text === 'refined takes'));
+
 	const template = await api('GET', `/api/projects/${drop.projectId}/generations/${drop.generationId}/variants/0/elementor?sliced=1`);
 	assert.equal(template.content.length, 2);
 	assert.equal(template.content[0].elements[0].widgetType, 'html');

@@ -24,9 +24,9 @@ You're in a chat with Claude Code or Codex working on your app. The agent design
 fabma drop header-*.html --title "Dashboard header options" --wait
 ```
 
-Fabma opens a gallery in your browser. You compare the options, **click on a design to pin comments** ("this button, but ghost style"), pick a winner, add a note. The `--wait` flag means the agent is blocked on your verdict — the moment you hit **Decide**, it receives your pick and every pinned comment (with % coordinates) as JSON and continues working.
+The session appears in Fabma. You compare the options, **click on a design to pin comments** ("this button, but ghost style"), pick a winner, add a note. The `--wait` flag means the agent is blocked on your verdict — the moment you hit **Decide**, it receives your pick and every pinned comment (with % coordinates) as JSON and continues working.
 
-Each drop is a fresh, disposable session — nothing to set up, nothing to clean. Point any agent at **`http://localhost:4011/agent.md`** and it knows the whole protocol.
+**It's a conversation, not a one-shot.** The agent's round notes land in the session's discussion panel, you can reply there (the agent reads it), and its next round drops into the *same* session — so a whole design exchange ("3 options" → your pins → "2 refined takes" → your pick) stays one scrollable thread. You never create anything by hand; sessions appear and the banner tells you when your agent is waiting on you. Point any agent at **`http://localhost:4011/agent.md`** and it knows the whole protocol.
 
 ### Teach your agent (once)
 

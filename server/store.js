@@ -38,6 +38,7 @@ export function createStore(workspace) {
 			ephemeral: !!ephemeral,
 			createdAt: nowIso(),
 			generations: [],
+			messages: [],
 		};
 		ensureDir(path.join(projectsDir, project.id));
 		writeJsonAtomic(projectFile(project.id), project);

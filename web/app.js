@@ -14,6 +14,7 @@ const state = {
 	viewport: 'desktop',
 	settings: load('fabma.settings', { provider: null, model: '', count: 4, refineCount: 3 }),
 	chipIds: [],
+	threadPref: null, // null = auto (open for agent sessions with messages)
 };
 
 /* ---------- tiny helpers ---------- */
@@ -270,10 +271,17 @@ function renderMain() {
 	const project = state.project;
 	const gen = project.generations.find((g) => g.id === state.activeGenId);
 
+	const messages = project.messages || [];
+	const threadOpen = state.threadPref ?? (project.ephemeral && messages.length > 0);
+
 	main.append(el('div', { class: 'topbar' },
 		el('h1', {}, project.name),
 		el('span', { class: 'badge' }, project.mode),
 		el('div', { class: 'spacer' }),
+		el('button', {
+			class: `btn small ${threadOpen ? '' : 'ghost'}`,
+			onclick: () => { state.threadPref = !threadOpen; render(); },
+		}, `Discussion${messages.length ? ` · ${messages.length}` : ''}`),
 		renderViewportToggle(),
 		el('button', { class: 'btn small', onclick: () => importModal() }, '⇪ Import')));
 
@@ -285,9 +293,39 @@ function renderMain() {
 	} else {
 		content.append(renderGeneration(project, gen));
 	}
-	main.append(content);
-	main.append(renderDock(project, gen));
+	const bodyRow = el('div', { class: 'body-row' }, content);
+	if (threadOpen) bodyRow.append(renderThread(project));
+	main.append(bodyRow);
+	main.append(renderDock(project, gen, threadOpen));
 	return main;
+}
+
+function renderThread(project) {
+	const list = el('div', { class: 'thread-list' });
+	for (const message of project.messages || []) {
+		list.append(el('div', { class: `msg ${message.from}` },
+			el('div', { class: 'msg-meta' }, message.from === 'agent' ? 'agent' : 'you', ' · ', timeAgo(message.at)),
+			el('div', { class: 'msg-text' }, message.text)));
+	}
+	if (!(project.messages || []).length) {
+		list.append(el('div', { class: 'hint', style: 'padding:8px 2px' },
+			'The conversation with your agent lives here — its round notes arrive automatically, and your replies are readable by the agent.'));
+	}
+	const input = el('input', { type: 'text', placeholder: 'Reply to your agent…' });
+	input.addEventListener('keydown', async (event) => {
+		if (event.key !== 'Enter' || !input.value.trim()) return;
+		try {
+			await api('POST', `/api/projects/${project.id}/messages`, { from: 'human', text: input.value.trim() });
+			input.value = '';
+			scheduleRefresh();
+		} catch (err) { fail(err); }
+	});
+	const thread = el('aside', { class: 'thread' },
+		el('div', { class: 'rail-label', style: 'padding:14px 16px 8px' }, 'Discussion'),
+		list,
+		el('div', { class: 'thread-input' }, input));
+	requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
+	return thread;
 }
 
 function renderViewportToggle() {
@@ -319,6 +357,10 @@ function renderGeneration(project, gen) {
 			el('b', {}, `Picked v${gen.decision.variant + 1}`),
 			el('span', {}, gen.decision.note || 'No note'),
 			el('span', { class: 'meta', style: 'margin-left:auto;color:var(--muted)' }, timeAgo(gen.decision.decidedAt))));
+	} else if (gen.kind === 'drop') {
+		wrap.append(el('div', { class: 'decision-banner' },
+			el('b', {}, 'Your agent is waiting'),
+			el('span', {}, 'Select the variant you want, pin comments on it, then hit Decide — the agent continues the moment you do.')));
 	}
 
 	const grid = el('div', { class: 'grid' });
@@ -383,7 +425,8 @@ function renderCard(project, gen, variant) {
 		el('span', { class: 'spacer' }));
 
 	if (variant.status === 'done') {
-		foot.append(
+		// Native .append() stringifies null — filter before appending.
+		foot.append(...[
 			el('button', {
 				class: `btn small icon ghost star ${variant.favorite ? 'on' : ''}`,
 				title: 'Favorite',
@@ -393,7 +436,8 @@ function renderCard(project, gen, variant) {
 			gen.kind !== 'drop' && gen.kind !== 'import'
 				? el('button', { class: 'btn small icon ghost', title: 'Regenerate', onclick: (e) => { e.stopPropagation(); retry(gen, variant); } }, '↻')
 				: null,
-			el('button', { class: 'btn small', onclick: (e) => { e.stopPropagation(); exportMenu(e, gen, variant); } }, 'Export ▾'));
+			el('button', { class: 'btn small', onclick: (e) => { e.stopPropagation(); exportMenu(e, gen, variant); } }, 'Export ▾'),
+		].filter(Boolean));
 	}
 	card.append(foot);
 
@@ -579,10 +623,10 @@ function openMenu(event, items) {
 
 /* ---------- dock ---------- */
 
-function renderDock(project, gen) {
+function renderDock(project, gen, threadOpen) {
 	const selection = state.selection && project.generations.find((g) => g.id === state.selection.genId);
 	const variant = selection?.variants[state.selection.index];
-	const dock = el('div', { class: 'dock' });
+	const dock = el('div', { class: `dock ${threadOpen ? 'with-thread' : ''}` });
 
 	if (variant) {
 		const pinCount = (variant.comments || []).length;
@@ -806,12 +850,12 @@ function renderWelcome() {
 	const none = !state.providers.some((p) => p.available);
 	return el('div', { class: 'content' }, el('div', { class: 'welcome' },
 		el('span', { html: SPARK, class: 'spark' }),
-		el('h1', {}, 'Stop making AI drive design tools. ', el('em', {}, 'Give it a medium it speaks.')),
-		el('p', {}, 'Fabma turns a brief into competing art directions — real, rendered, self-contained HTML — using the Claude Code or Codex subscription you already have. You pick, pin comments, refine. Then export clean HTML, an Elementor template for WordPress, or SVG you can paste straight into Figma.'),
+		el('h1', {}, 'Your agent designs. ', el('em', {}, 'You decide.')),
+		el('p', {}, 'Ask Claude Code or Codex for design options in any chat — sessions appear here by themselves. Compare the variants, pin comments on the designs, reply in the discussion, pick a winner. Your agent is waiting on your verdict and continues the moment you decide.'),
+		el('pre', { html: `you: "give me 3 directions for the pricing header"\nagent: designs them, runs <b>fabma drop</b> a.html b.html c.html <b>--wait</b>\nyou: pick · pin comments · decide — right here\nagent: gets your verdict as JSON and keeps working\n\n<span style="opacity:.6">teach your agent once:  <b>fabma skill install --codex</b>   (or point it at /agent.md)</span>` }),
 		none ? el('div', { class: 'warn' }, 'No provider detected. Install & log in to Claude Code or Codex, or set ANTHROPIC_API_KEY, then restart fabma.') : null,
-		el('div', {}, el('button', { class: 'btn primary', onclick: newProjectModal }, '✳ New project')),
-		el('p', {}, 'Working with an agent in a chat? Have it drop its own variants here and wait for your verdict:'),
-		el('pre', { html: `<b>fabma drop</b> header-a.html header-b.html --title "Header options" <b>--wait</b>\n<span style="opacity:.6"># blocks until you decide in this UI, then prints your pick + pinned comments</span>\n\nagents can read the full API at <b>/agent.md</b>` })));
+		el('p', {}, 'You can also drive it yourself — brief in, art directions out, refine with pins:'),
+		el('div', {}, el('button', { class: 'btn', onclick: newProjectModal }, '✳ New project'))));
 }
 
 /* ---------- elapsed timers ---------- */
