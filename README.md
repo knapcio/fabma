@@ -1,6 +1,10 @@
 <p align="center"><img src="docs/assets/banner.svg" alt="fabma — the AI-native design playground" width="100%"></p>
 
-**Fabma is where your coding agent shows you designs — and you decide.** Claude Code or Codex designs real, rendered variants; you compare them in the app, pin comments on the designs, reply in the discussion, pick a winner; your agent reads the verdict and keeps working. No Figma round-trips, no API keys, no cloud — it runs on the agent subscriptions you already have, and your designs are plain HTML files on disk.
+**Fabma is where AI and humans make design decisions together.** Your agent proposes real, rendered variants in sessions; you compare, pin comments on the designs, reply, pick a winner; the agent reads your verdict and keeps working. Local, open source, no API keys — it runs on the Claude Code / Codex subscriptions you already have.
+
+**If you're a developer** — let's be honest: AI design without supervision is mediocre. It gets good when a human steers it — real variants side by side, comments pinned to the exact spot, a clear decision. Fabma is that steering wheel, built into the agents you already work with.
+
+**If you're a designer** — AI inside Figma is painful: one frame serializes to tens of thousands of tokens of node JSON, every edit crawls through plugin calls, and the model still can't see what it made. Fabma gives AI a medium it's actually fluent in — real rendered HTML and SVG — and sends the results back to your tools: SVG that pastes straight into Figma, Elementor templates for WordPress, clean HTML.
 
 <p align="center"><img src="docs/assets/ui.png" alt="Fabma app" width="100%"></p>
 

@@ -7,7 +7,9 @@ serializes to tens of thousands of tokens of node JSON, every edit
 round-trips through plugin calls, and the model still can't see what it made.
 The same design as a self-contained HTML/SVG document is a few thousand
 tokens, renders deterministically, diffs, and versions. Fabma flips the
-medium and keeps the human where they're irreplaceable: taste.
+medium and keeps the human where they're irreplaceable: taste. Unsupervised
+AI design converges on the mediocre; steered AI design — variants compared,
+feedback pinned to pixels, decisions recorded — is a different product.
 
 ## The format
 
