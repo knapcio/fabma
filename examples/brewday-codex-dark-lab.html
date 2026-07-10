@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Brewday is a small-batch coffee subscription for developers.">
+  <title>Brewday — Coffee for developers</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f5f0df;
+      --muted: #a9aba3;
+      --acid: #c7ff4a;
+      --acid-soft: #e0ff9c;
+      --coffee: #c5753f;
+      --copper: #f0a06d;
+      --void: #070907;
+      --panel: #0e120e;
+      --line: rgba(199, 255, 74, .2);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 76% 45%, rgba(126, 62, 31, .16), transparent 28rem),
+        linear-gradient(180deg, #090c09 0%, var(--void) 100%);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .hero {
+      position: relative;
+      isolation: isolate;
+      width: 100%;
+      min-height: 100svh;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: clamp(1.25rem, 2.6vw, 2.75rem) clamp(1.25rem, 5.5vw, 5.5rem);
+      background-image:
+        linear-gradient(rgba(199, 255, 74, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(199, 255, 74, .035) 1px, transparent 1px);
+      background-size: 52px 52px;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      background: linear-gradient(90deg, rgba(7, 9, 7, .98) 0%, rgba(7, 9, 7, .88) 42%, rgba(7, 9, 7, .15) 69%, rgba(7, 9, 7, .52) 100%);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: 1rem;
+      z-index: 4;
+      border: 1px solid rgba(199, 255, 74, .12);
+      pointer-events: none;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      min-height: 2rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      font-size: .7rem;
+      position: relative;
+      z-index: 5;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: .7rem;
+      color: var(--ink);
+      font-weight: 800;
+      letter-spacing: .18em;
+    }
+
+    .brand-mark {
+      width: .7rem;
+      height: .7rem;
+      background: var(--acid);
+      border-radius: 50% 50% 45% 55% / 35% 45% 55% 65%;
+      box-shadow: 0 0 18px rgba(199, 255, 74, .55);
+      transform: rotate(38deg);
+    }
+
+    .status {
+      display: flex;
+      gap: .6rem;
+      align-items: center;
+      color: var(--muted);
+    }
+
+    .status::before {
+      content: "";
+      width: .38rem;
+      height: .38rem;
+      border-radius: 50%;
+      background: var(--acid);
+      box-shadow: 0 0 10px var(--acid);
+    }
+
+    .hero-grid {
+      width: min(100%, 100rem);
+      margin-inline: auto;
+      display: grid;
+      grid-template-columns: minmax(29rem, .9fr) minmax(34rem, 1.1fr);
+      align-items: center;
+      gap: 2rem;
+      padding-block: clamp(3rem, 8vh, 7rem);
+      position: relative;
+      z-index: 2;
+    }
+
+    .copy {
+      position: relative;
+      z-index: 3;
+      max-width: 42rem;
+    }
+
+    .eyebrow {
+      margin: 0 0 1.5rem;
+      display: inline-flex;
+      align-items: center;
+      gap: .85rem;
+      color: var(--acid-soft);
+      font: 600 .7rem/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "01";
+      display: grid;
+      place-items: center;
+      width: 2rem;
+      height: 2rem;
+      border: 1px solid var(--line);
+      color: var(--acid);
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 10ch;
+      font-size: clamp(4.5rem, 7.5vw, 8.1rem);
+      line-height: .86;
+      letter-spacing: -.075em;
+      font-weight: 780;
+    }
+
+    h1 .ship {
+      display: block;
+      color: var(--ink);
+    }
+
+    h1 .sip {
+      display: block;
+      color: transparent;
+      -webkit-text-stroke: 1.5px var(--copper);
+      text-shadow: 0 0 24px rgba(197, 117, 63, .12);
+    }
+
+    .deck {
+      max-width: 34rem;
+      margin: 2rem 0 0;
+      padding-left: 1.1rem;
+      border-left: 2px solid var(--acid);
+      color: #c5c6bd;
+      font-size: clamp(1rem, 1.3vw, 1.2rem);
+      line-height: 1.65;
+    }
+
+    .cta-row {
+      margin-top: 2.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .cta {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2.5rem;
+      min-width: 13.5rem;
+      min-height: 3.75rem;
+      padding: 1rem 1.2rem;
+      background: var(--acid);
+      color: #101500;
+      border: 1px solid var(--acid);
+      border-radius: 0;
+      font: 800 .76rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: .08em;
+      text-decoration: none;
+      text-transform: uppercase;
+      box-shadow: 7px 7px 0 rgba(199, 255, 74, .15);
+      transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+
+    .cta span:last-child {
+      font-size: 1.15rem;
+      transition: transform .2s ease;
+    }
+
+    .cta:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 10px 10px 0 rgba(199, 255, 74, .15);
+      background: #d3ff70;
+    }
+
+    .cta:hover span:last-child { transform: translateX(3px); }
+
+    .cta:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: 5px;
+    }
+
+    .microcopy {
+      color: #888d84;
+      font: .63rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .apparatus {
+      position: relative;
+      width: min(100%, 47rem);
+      margin: 0;
+      justify-self: end;
+      filter: drop-shadow(0 24px 55px rgba(0, 0, 0, .75));
+    }
+
+    .apparatus::before {
+      content: "";
+      position: absolute;
+      width: 44%;
+      aspect-ratio: 1;
+      left: 31%;
+      top: 30%;
+      border-radius: 50%;
+      background: rgba(202, 96, 43, .14);
+      box-shadow: 0 0 8rem 3rem rgba(202, 96, 43, .1);
+      z-index: -1;
+    }
+
+    .apparatus svg { display: block; width: 100%; height: auto; }
+
+    .footer-readout {
+      position: relative;
+      z-index: 5;
+      display: grid;
+      grid-template-columns: repeat(3, max-content) 1fr;
+      align-items: end;
+      gap: clamp(1.2rem, 3vw, 3rem);
+      color: #858a81;
+      font: .62rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .datum strong {
+      display: block;
+      color: #d5d5c9;
+      font-size: .72rem;
+      font-weight: 500;
+    }
+
+    .trace {
+      height: 1px;
+      margin-bottom: .35rem;
+      background: linear-gradient(90deg, var(--line), transparent);
+    }
+
+    @media (max-width: 1040px) {
+      .hero-grid {
+        grid-template-columns: minmax(22rem, .95fr) minmax(25rem, 1.05fr);
+      }
+
+      h1 { font-size: clamp(4rem, 8vw, 6.3rem); }
+      .apparatus { width: 115%; transform: translateX(8%); }
+    }
+
+    @media (max-width: 760px) {
+      .hero {
+        min-height: 100svh;
+        padding: 1.4rem 1.25rem 1.5rem;
+        background-size: 38px 38px;
+      }
+
+      .hero::after { inset: .6rem; }
+      .status { font-size: 0; gap: 0; }
+
+      .hero-grid {
+        grid-template-columns: 1fr;
+        padding-block: 3.5rem 2rem;
+        gap: .5rem;
+      }
+
+      .copy { max-width: none; }
+      .eyebrow { margin-bottom: 1.1rem; }
+      h1 { font-size: clamp(3.75rem, 19vw, 5.3rem); }
+      .deck { margin-top: 1.5rem; font-size: .98rem; max-width: 31rem; }
+      .cta-row { align-items: flex-start; flex-direction: column; gap: 1rem; }
+      .cta { width: min(100%, 18rem); }
+
+      .apparatus {
+        width: min(125%, 34rem);
+        margin: -1rem auto -3rem;
+        justify-self: center;
+        transform: none;
+        opacity: .92;
+        order: -1;
+      }
+
+      .hero::before {
+        background: linear-gradient(180deg, rgba(7, 9, 7, .25), rgba(7, 9, 7, .98) 43%);
+      }
+
+      .footer-readout {
+        grid-template-columns: repeat(3, 1fr);
+        gap: .75rem;
+      }
+
+      .trace { display: none; }
+    }
+
+    @media (max-width: 430px) {
+      .apparatus { margin-top: -2rem; margin-bottom: -3.8rem; }
+      .microcopy { max-width: 18rem; }
+      .datum:nth-child(3) { text-align: right; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <section class="hero" id="start" aria-labelledby="hero-title">
+    <header class="topbar">
+      <div class="brand" aria-label="Brewday">
+        <span class="brand-mark" aria-hidden="true"></span>
+        Brewday
+      </div>
+      <div class="status">Small-batch system online</div>
+    </header>
+
+    <div class="hero-grid">
+      <div class="copy">
+        <p class="eyebrow">Coffee subscription / built for developers</p>
+        <h1 id="hero-title">
+          <span class="ship">Ship code.</span>
+          <span class="sip">Sip better.</span>
+        </h1>
+        <p class="deck">Small-batch coffee, roasted on a tight release cycle and delivered to keep your build sessions bright, balanced, and properly caffeinated.</p>
+        <div class="cta-row">
+          <a class="cta" href="#start" aria-label="Start brewing with Brewday">
+            <span>Start brewing</span>
+            <span aria-hidden="true">→</span>
+          </a>
+          <span class="microcopy">Fresh roast deployed<br>to your door</span>
+        </div>
+      </div>
+
+      <figure class="apparatus">
+        <svg viewBox="0 0 760 700" role="img" aria-labelledby="brew-title brew-desc">
+          <title id="brew-title">Brewday extraction chamber</title>
+          <desc id="brew-desc">A glowing copper coffee vessel suspended inside a dark, technical laboratory frame.</desc>
+          <defs>
+            <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#dbe1d4" stop-opacity=".18"/>
+              <stop offset=".45" stop-color="#60695e" stop-opacity=".06"/>
+              <stop offset="1" stop-color="#dae0d4" stop-opacity=".14"/>
+            </linearGradient>
+            <linearGradient id="brew" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#e8a16c"/>
+              <stop offset=".3" stop-color="#bd6033"/>
+              <stop offset="1" stop-color="#4c1f12"/>
+            </linearGradient>
+            <linearGradient id="metal" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#212721"/>
+              <stop offset=".5" stop-color="#6c7568"/>
+              <stop offset="1" stop-color="#171c17"/>
+            </linearGradient>
+            <radialGradient id="glow">
+              <stop offset="0" stop-color="#ffd7a4" stop-opacity=".85"/>
+              <stop offset=".32" stop-color="#d77c45" stop-opacity=".5"/>
+              <stop offset="1" stop-color="#7d321c" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%">
+              <feGaussianBlur stdDeviation="18"/>
+            </filter>
+            <filter id="fineGlow" x="-100%" y="-100%" width="300%" height="300%">
+              <feGaussianBlur stdDeviation="4"/>
+            </filter>
+            <clipPath id="chamberClip">
+              <path d="M285 192 H480 L512 475 Q515 542 449 560 H316 Q250 542 253 475 Z"/>
+            </clipPath>
+          </defs>
+
+          <g fill="none" stroke="#c7ff4a" stroke-opacity=".17" stroke-width="1">
+            <path d="M82 90H670M82 610H670M98 70V630M652 70V630"/>
+            <path stroke-dasharray="5 9" d="M375 40V650M55 350H705"/>
+            <circle cx="375" cy="350" r="286"/>
+            <circle cx="375" cy="350" r="246" stroke-dasharray="2 14"/>
+          </g>
+
+          <g fill="#c7ff4a" opacity=".65">
+            <circle cx="98" cy="90" r="3"/><circle cx="652" cy="90" r="3"/>
+            <circle cx="98" cy="610" r="3"/><circle cx="652" cy="610" r="3"/>
+          </g>
+
+          <g font-family="ui-monospace, monospace" font-size="10" fill="#a2a79c" letter-spacing="2">
+            <text x="106" y="82">BD–01</text>
+            <text x="602" y="82">ACTIVE</text>
+            <text x="108" y="603">EXTRACT</text>
+            <text x="591" y="603">09:42</text>
+          </g>
+
+          <path d="M241 136H516L533 178H224Z" fill="url(#metal)" stroke="#899185" stroke-opacity=".45"/>
+          <rect x="276" y="158" width="212" height="42" rx="4" fill="#141a14" stroke="#c7ff4a" stroke-opacity=".2"/>
+          <path d="M310 158V106Q310 82 334 82H418Q442 82 442 106V158" fill="none" stroke="#737c70" stroke-width="9"/>
+          <path d="M310 158V106Q310 82 334 82" fill="none" stroke="#c4cec0" stroke-opacity=".35" stroke-width="2"/>
+          <rect x="347" y="173" width="59" height="8" rx="4" fill="#c7ff4a" opacity=".8"/>
+
+          <ellipse cx="383" cy="430" rx="170" ry="176" fill="url(#glow)" filter="url(#softGlow)" opacity=".42"/>
+          <path d="M285 192 H480 L512 475 Q515 542 449 560 H316 Q250 542 253 475 Z" fill="url(#glass)" stroke="#a8b1a4" stroke-opacity=".55" stroke-width="2"/>
+
+          <g clip-path="url(#chamberClip)">
+            <path d="M244 344 Q322 321 389 344 T520 344 V566 H244Z" fill="url(#brew)" opacity=".92"/>
+            <path d="M244 344 Q322 321 389 344 T520 344" fill="none" stroke="#ffc190" stroke-opacity=".8" stroke-width="4"/>
+            <ellipse cx="386" cy="353" rx="118" ry="34" fill="#f6ab72" opacity=".12"/>
+            <g fill="#ffd2a9" opacity=".65">
+              <circle cx="330" cy="393" r="3"/><circle cx="419" cy="431" r="2"/>
+              <circle cx="369" cy="478" r="2.5"/><circle cx="451" cy="387" r="2"/>
+              <circle cx="303" cy="458" r="1.8"/>
+            </g>
+          </g>
+
+          <path d="M278 217L300 473Q300 520 335 536" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="5" stroke-linecap="round"/>
+          <path d="M467 215L483 390" fill="none" stroke="#c7ff4a" stroke-opacity=".16" stroke-width="2"/>
+          <ellipse cx="383" cy="346" rx="64" ry="28" fill="#ffb578" opacity=".22" filter="url(#fineGlow)"/>
+
+          <path d="M253 475H207V514H265M511 475H554V514H499" fill="none" stroke="#525b50" stroke-width="10"/>
+          <path d="M267 560H499L481 600H286Z" fill="url(#metal)" stroke="#8f978c" stroke-opacity=".35"/>
+          <path d="M314 600V628M454 600V628M282 630H486" fill="none" stroke="#545c52" stroke-width="8"/>
+
+          <g stroke="#c7ff4a" stroke-width="1.5" fill="#0d110d">
+            <circle cx="572" cy="241" r="21"/>
+            <path d="M572 220V188M572 262V290M551 241H519M593 241H625"/>
+            <circle cx="572" cy="241" r="4" fill="#c7ff4a"/>
+          </g>
+          <g font-family="ui-monospace, monospace" fill="#c7ff4a" font-size="10" letter-spacing="1">
+            <text x="610" y="229">94°C</text><text x="610" y="245" fill="#7c8278">THERMAL</text>
+          </g>
+
+          <g transform="translate(115 245)">
+            <rect width="103" height="72" fill="#0c100c" stroke="#c7ff4a" stroke-opacity=".3"/>
+            <text x="12" y="18" font-family="ui-monospace, monospace" font-size="8" fill="#858c82" letter-spacing="1">FLOW RATE</text>
+            <text x="12" y="48" font-family="ui-monospace, monospace" font-size="23" fill="#e9ebdf">2.8</text>
+            <text x="59" y="48" font-family="ui-monospace, monospace" font-size="8" fill="#c7ff4a">ML/S</text>
+            <path d="M12 60H91" stroke="#c7ff4a" stroke-opacity=".28"/>
+          </g>
+
+          <g stroke="#c7ff4a" stroke-opacity=".55" fill="none">
+            <path d="M154 414v68h76"/>
+            <path d="M610 386v68h-76"/>
+          </g>
+          <g fill="#c7ff4a">
+            <circle cx="154" cy="414" r="3"/><circle cx="610" cy="386" r="3"/>
+          </g>
+        </svg>
+      </figure>
+    </div>
+
+    <footer class="footer-readout" aria-label="Brew profile">
+      <div class="datum">Roast<strong>Light / Medium</strong></div>
+      <div class="datum">Cadence<strong>Every 14 days</strong></div>
+      <div class="datum">Batch<strong>Roasted fresh</strong></div>
+      <div class="trace" aria-hidden="true"></div>
+    </footer>
+  </section>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{
+	"name": "fabma-desktop",
+	"version": "0.1.0",
+	"description": "Fabma desktop app — a thin shell over the local playground",
+	"license": "MIT",
+	"type": "module",
+	"main": "main.js",
+	"scripts": {
+		"start": "electron .",
+		"dist": "electron-builder --mac"
+	},
+	"devDependencies": {
+		"electron": "^36.0.0",
+		"electron-builder": "^26.0.0"
+	},
+	"build": {
+		"appId": "dev.fabma.app",
+		"productName": "Fabma",
+		"files": ["main.js", "../server/**/*", "../web/**/*", "../bin/**/*", "../AGENT.md", "../node_modules/**/*"],
+		"mac": {
+			"target": "dmg",
+			"category": "public.app-category.graphics-design"
+		}
+	}
+}

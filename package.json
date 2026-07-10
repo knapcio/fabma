@@ -1,0 +1,37 @@
+{
+	"name": "fabma",
+	"version": "0.1.0",
+	"description": "AI-native design playground — brief in, art directions out. Pick, direct, refine. Export HTML, SVG (paste into Figma), or Elementor templates.",
+	"license": "MIT",
+	"type": "module",
+	"bin": {
+		"fabma": "bin/fabma.js"
+	},
+	"scripts": {
+		"start": "node bin/fabma.js",
+		"dev": "FABMA_WORKSPACE=./workspace FABMA_NO_OPEN=1 node bin/fabma.js",
+		"smoke": "node scripts/smoke.js"
+	},
+	"engines": {
+		"node": ">=18"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/knapcio/fabma.git"
+	},
+	"keywords": [
+		"ai",
+		"design",
+		"figma",
+		"elementor",
+		"claude",
+		"codex",
+		"generative-design",
+		"playground",
+		"local-first"
+	],
+	"dependencies": {
+		"express": "^5.1.0",
+		"node-html-parser": "^7.0.1"
+	}
+}
