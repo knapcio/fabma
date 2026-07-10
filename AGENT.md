@@ -17,27 +17,15 @@ Base URL: `http://localhost:4011` (default port).
 4. You read the decision and continue — implement the picked design, or
    iterate and drop again.
 
-## One-command way (recommended)
+The human usually runs the Fabma desktop app — it hosts this API and shows
+new sessions by itself the moment you create one. Plain HTTP is all you need.
+
+## Raw HTTP way (works everywhere)
 
 ```bash
-# from the fabma checkout (or with fabma installed globally)
-fabma drop header-a.html header-b.html header-c.html \
-  --title "Dashboard header options" \
-  --note "Which direction for the new header?" \
-  --wait
-```
-
-- Starts the server if it isn't running, opens the gallery in the browser.
-- `--wait` blocks until the human decides, then prints the decision JSON
-  (picked variant index, their note, and every comment with % coordinates)
-  to stdout. Tell the human something like: *"I dropped 3 header options
-  into Fabma and opened it — pick one and add comments, I'm waiting."*
-
-## Raw HTTP way
-
-```bash
-# is it running? (if not: `fabma --no-open &` or `node bin/fabma.js --no-open &`)
+# is it running? ("flavor":"desktop" means the human has the app open)
 curl -s http://localhost:4011/api/health
+# not running and you have a fabma checkout: `node bin/fabma.js --no-open &`
 
 # push variants
 curl -s -X POST http://localhost:4011/api/drop \
@@ -54,6 +42,24 @@ curl -s "<feedbackUrl>?wait=55"
 
 Comment coordinates `x`/`y` are percentages of the design canvas (from left
 and top) — use them to locate what the human pointed at.
+
+Tell the human something like: *"I dropped 3 header options into Fabma —
+pick one and pin comments, I'm waiting."* If `flavor` was NOT `desktop`,
+also open the session `url` in their browser.
+
+## One-command way (if you have the fabma checkout / CLI)
+
+```bash
+fabma drop header-a.html header-b.html header-c.html \
+  --title "Dashboard header options" \
+  --note "Which direction for the new header?" \
+  --wait
+```
+
+- Starts the server if it isn't running; brings the desktop app to the
+  front (or opens the browser).
+- `--wait` blocks until the human decides, then prints the decision JSON
+  (picked variant index, their note, and every comment) to stdout.
 
 ## Full generation API (optional)
 

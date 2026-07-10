@@ -86,7 +86,15 @@ async function drop(rest) {
 
 	console.log(`Session ready: ${session.url}`);
 	console.log(`Feedback:      ${session.feedbackUrl}`);
-	openBrowser(session.url);
+
+	// If the Fabma desktop app is serving, it shows the session by itself —
+	// just bring it to front. Otherwise open the browser.
+	const health = await fetch(`${base}/api/health`).then((r) => r.json()).catch(() => ({}));
+	if (health.flavor === 'desktop' && process.platform === 'darwin') {
+		spawn('open', ['-a', 'Fabma'], { stdio: 'ignore', detached: true }).unref();
+	} else {
+		openBrowser(session.url);
+	}
 
 	if (!wait) return;
 	console.error('Waiting for the human to pick a variant…');

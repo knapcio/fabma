@@ -38,15 +38,20 @@ Works for **pages**, **single sections** (perfect for Elementor), and **SVG illu
 
 Import a **screenshot** of your actual product (Playwright shot, ⌘⇧4), optionally with its HTML for fidelity. Select it, describe the change — the AI recreates the real look and mocks your change on top of it. When a variant wins, **Export → Copy handoff prompt** gives your coding agent the mockup path, baseline screenshot, decision note, and pinned comments — a spec, not a vibe.
 
-## Quickstart
+## Get it
+
+**Fabma is a desktop app.** Download **Fabma.dmg** from [Releases](https://github.com/knapcio/fabma/releases), drag it to Applications, and open it (unsigned for now — right-click → Open the first time). Everything happens in the app: projects on the left, variants on the stage, decisions in one click. Agent drops appear in the app by themselves.
+
+Or run from source:
 
 ```bash
 git clone https://github.com/knapcio/fabma && cd fabma
 npm install
-npm start          # → http://localhost:4011  (0xFAB)
+npm run app        # the desktop app
+npm start          # or headless server + browser at http://localhost:4011 (0xFAB)
 ```
 
-Requirements: Node 18+, and at least one provider:
+Requirements: Node 18+ (source only), and at least one provider:
 
 | Provider | How it's detected | Notes |
 | --- | --- | --- |
@@ -56,13 +61,9 @@ Requirements: Node 18+, and at least one provider:
 
 Pick the provider per generation in the dock — and retry any single variant with a different one. Model override is a text field (`--model`/`-m` passthrough); leave empty for your CLI's default.
 
-### Desktop app (macOS)
+### How the app and agents share one brain
 
-```bash
-cd desktop && npm install && npm start   # thin Electron shell; attaches to a running server or hosts its own
-```
-
-A packaged, signed DMG is on the roadmap — for now the shell runs from the checkout.
+The app hosts the playground server on port 4011 (or attaches to one an agent already started). Coding agents talk to that same server — so when Codex runs `fabma drop`, the session appears **inside the app**, front and center. `npm run dist` builds the DMG from source.
 
 ## Exports
 
@@ -91,7 +92,8 @@ Generation rules the agents follow (locked brief vs. visual direction, no extern
 ## Architecture
 
 ```
-bin/fabma.js          CLI: start the playground · `fabma drop` for agents
+desktop/main.js       the app: Electron shell hosting the playground server
+bin/fabma.js          CLI: headless server · `fabma drop` for agents
 server/
   index.js            express API + SSE + static UI (localhost only)
   generate.js         job engine: parallel variants, retries, cancel, converts
@@ -99,7 +101,6 @@ server/
   providers/          claude-cli · codex-cli · anthropic-api (one file each)
   exporters/          elementor (scoped-CSS embed + template) · svg
 web/                  no-build vanilla frontend (ES modules, SSE)
-desktop/              thin Electron shell (mac-first)
 AGENT.md              the protocol agents read at /agent.md
 ```
 
@@ -113,11 +114,11 @@ No database, no build step, no telemetry. State is JSON + HTML files in the work
 - PNG export (headless screenshot) and side-by-side compare mode
 - Elementor: import-tested native conversion across versions; theme-kit awareness
 - Design tokens: lock a palette/type scale across all generations of a project
-- `npx fabma` (npm publish), a Homebrew formula, and a packaged/signed desktop DMG
+- `npx fabma` (npm publish), a Homebrew cask, signed + notarized DMG, auto-update
 - Container-level isolation for provider processes (today: allowlisted env + the CLIs' own sandboxes)
 
 ## Contributing
 
 It's early and the surface is small on purpose. Bug reports with a failing `npm run smoke` case are gold; provider quirks (CLI flag changes, auth edge cases) are the most valuable issues. Keep PRs in the spirit: no build steps, no frameworks, no cloud.
 
-MIT © Fabma contributors. *fable × figma — almost called it Figla.*
+MIT © Fabma contributors.

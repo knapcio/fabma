@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brewday — small-batch coffee for developers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --birch:      #F0ECE3;   /* warm paper */
+    --birch-deep: #E7E2D6;
+    --mist:       #D9E0DC;   /* sea-glass panel */
+    --mist-line:  #C3CEC9;
+    --ink:        #26332E;   /* deep pine */
+    --ink-soft:   #55645D;   /* quiet body text, 5:1 on birch */
+    --thread:     #6E8479;   /* steam / rule lines */
+    --sun:        #E8D9BE;   /* pale low sun */
+    --focus:      #26332E;
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+
+  html{ scroll-behavior:smooth; }
+
+  body{
+    background: var(--birch);
+    color: var(--ink);
+    font-family: "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a{ color: inherit; }
+  a:focus-visible,
+  .cta:focus-visible{
+    outline: 2px solid var(--focus);
+    outline-offset: 4px;
+    border-radius: 2px;
+  }
+
+  /* ---------- header ---------- */
+  .site-head{
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 34px 48px 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .wordmark{
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+  }
+  .wordmark .dot{ color: var(--thread); }
+  .head-note{
+    font-size: 12.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+
+  /* ---------- hero ---------- */
+  .hero{
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 56px 48px 72px;
+    display: grid;
+    grid-template-columns: minmax(420px, 58fr) minmax(360px, 42fr);
+    gap: clamp(40px, 6vw, 96px);
+    align-items: stretch;
+    min-height: calc(100vh - 90px);
+  }
+
+  .hero-copy{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px 0;
+  }
+
+  .eyebrow{
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 40px;
+  }
+  .eyebrow::before{
+    content: "";
+    width: 44px;
+    height: 1px;
+    background: var(--thread);
+  }
+
+  h1{
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 300;
+    font-size: clamp(52px, 6.4vw, 96px);
+    line-height: 1.04;
+    letter-spacing: -0.015em;
+    max-width: 11ch;
+  }
+  h1 em{
+    font-style: italic;
+    font-weight: 400;
+    color: var(--thread);
+  }
+
+  .tagline{
+    margin-top: 36px;
+    font-size: clamp(17px, 1.3vw, 19px);
+    color: var(--ink-soft);
+    max-width: 46ch;
+  }
+
+  .cta-row{
+    margin-top: 48px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    flex-wrap: wrap;
+  }
+  .cta{
+    display: inline-block;
+    background: var(--ink);
+    color: #F3EFE6;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 16px;
+    letter-spacing: 0.02em;
+    padding: 18px 44px;
+    border-radius: 999px;
+    transition: background 0.25s ease, transform 0.25s ease;
+  }
+  .cta:hover{ background: #3A4A43; transform: translateY(-1px); }
+  .cta-aside{
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+
+  .meta-row{
+    margin-top: 72px;
+    padding-top: 24px;
+    border-top: 1px solid var(--mist-line);
+    display: flex;
+    gap: clamp(24px, 4vw, 64px);
+    flex-wrap: wrap;
+  }
+  .meta-row dt{
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+  .meta-row dd{
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 18px;
+    font-weight: 400;
+  }
+
+  /* ---------- panel with illustration ---------- */
+  .hero-scene{
+    background: var(--mist);
+    border-radius: 6px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+    min-height: 560px;
+  }
+  .hero-scene svg{
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .scene-caption{
+    position: absolute;
+    top: 28px;
+    left: 32px;
+    right: 32px;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: #45564E;
+  }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 980px){
+    .hero{
+      grid-template-columns: 1fr;
+      min-height: 0;
+      padding: 40px 28px 56px;
+    }
+    .site-head{ padding: 28px 28px 0; }
+    .hero-scene{ min-height: 0; order: 2; }
+    .hero-copy{ order: 1; padding: 8px 0; }
+    .meta-row{ margin-top: 52px; }
+  }
+  @media (max-width: 480px){
+    .site-head{ padding: 24px 20px 0; }
+    .hero{ padding: 32px 20px 48px; gap: 40px; }
+    .head-note{ display: none; }
+    .cta{ width: 100%; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-head">
+  <a class="wordmark" href="#">Brewday<span class="dot">.</span></a>
+  <p class="head-note">Roasted in small batches · Norrland &amp; beyond</p>
+</header>
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="hero-copy">
+    <p class="eyebrow">Small-batch coffee for developers</p>
+    <h1 id="hero-title">Ship steadily.<br><em>Sip slowly.</em></h1>
+    <p class="tagline">One small batch, roasted each Tuesday and sent to the people
+    who build the internet. A calmer cup for the morning standup, the long refactor,
+    the Friday deploy you actually feel good about.</p>
+    <div class="cta-row">
+      <a class="cta" href="#">Start brewing</a>
+      <p class="cta-aside">From 89 kr a bag · pause any sprint</p>
+    </div>
+    <dl class="meta-row">
+      <div><dt>Roasted</dt><dd>Tuesdays, to order</dd></div>
+      <div><dt>Shipped</dt><dd>Wednesday morning</dd></div>
+      <div><dt>At your desk</dt><dd>Before Friday’s deploy</dd></div>
+    </dl>
+  </div>
+
+  <div class="hero-scene">
+    <p class="scene-caption"><span>Batch № 214</span><span>Steam, merged</span></p>
+    <svg viewBox="0 0 520 640" role="img" aria-label="Line drawing of a coffee cup on a still horizon; its steam rises like a commit graph, two branches merging into one" preserveAspectRatio="xMidYMax meet">
+      <!-- low pale sun -->
+      <circle cx="150" cy="470" r="92" fill="var(--sun)" opacity="0.85"/>
+      <!-- distant fell line -->
+      <path d="M0 512 L120 512 L200 476 L272 512 L520 512" fill="none" stroke="#9FB0A8" stroke-width="1.5"/>
+      <!-- horizon -->
+      <line x1="0" y1="548" x2="520" y2="548" stroke="#8FA199" stroke-width="1.5"/>
+
+      <!-- steam as commit graph: left branch merges into main line -->
+      <g fill="none" stroke="var(--thread)" stroke-width="2" stroke-linecap="round">
+        <!-- main steam line -->
+        <path d="M300 402 C 300 350, 268 330, 268 278 C 268 226, 306 206, 306 152 C 306 110, 284 92, 284 56"/>
+        <!-- feature branch: splits low, rejoins mid -->
+        <path d="M300 402 C 300 368, 226 356, 224 300 C 222 252, 262 246, 268 278" opacity="0.8"/>
+        <!-- faint third wisp -->
+        <path d="M336 396 C 342 352, 322 336, 328 292 C 333 254, 352 240, 350 204" opacity="0.4"/>
+      </g>
+      <!-- commit dots along the steam -->
+      <g fill="var(--mist)" stroke="var(--thread)" stroke-width="2">
+        <circle cx="300" cy="402" r="6"/>
+        <circle cx="224" cy="300" r="6"/>
+        <circle cx="268" cy="278" r="6"/>
+        <circle cx="306" cy="152" r="6"/>
+        <circle cx="284" cy="56"  r="6"/>
+      </g>
+      <!-- tiny merge tick beside the merge commit -->
+      <g font-family="Inter, sans-serif" font-size="11" letter-spacing="0.08em" fill="#45564E">
+        <text x="286" y="282" text-anchor="end">merged</text>
+        <text x="322" y="156">roasted</text>
+        <text x="300" y="60">shipped</text>
+      </g>
+
+      <!-- cup and saucer -->
+      <g stroke="var(--ink)" stroke-width="2.5" fill="var(--birch)" stroke-linejoin="round">
+        <!-- handle -->
+        <path d="M368 448 C 404 448, 404 500, 366 502" fill="none"/>
+        <!-- body -->
+        <path d="M232 436 L376 436 C 376 486, 350 516, 304 516 C 258 516, 232 486, 232 436 Z"/>
+        <!-- surface ellipse hint -->
+        <path d="M244 436 C 254 444, 354 444, 364 436" fill="none" stroke-width="1.5" opacity="0.6"/>
+        <!-- saucer -->
+        <line x1="204" y1="534" x2="404" y2="534" stroke-width="2.5"/>
+        <line x1="238" y1="548" x2="370" y2="548" stroke-width="2.5"/>
+      </g>
+
+      <!-- ground shadow -->
+      <ellipse cx="304" cy="576" rx="120" ry="8" fill="#C6D1CB"/>
+
+      <!-- quiet base rule -->
+      <line x1="32" y1="612" x2="488" y2="612" stroke="#B4C1BA" stroke-width="1"/>
+    </svg>
+  </div>
+</section>
+
+</body>
+</html>

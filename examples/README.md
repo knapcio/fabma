@@ -9,6 +9,7 @@ Real, unedited fabma output — same brief, one generation each, different provi
 | [brewday-claude-editorial-ink.html](brewday-claude-editorial-ink.html) | Claude Code | Editorial ink |
 | [brewday-claude-bold-pop.html](brewday-claude-bold-pop.html) | Claude Code | Bold pop |
 | [brewday-claude-neo-retro.html](brewday-claude-neo-retro.html) | Claude Code | Neo-retro print |
+| [brewday-claude-nordic-calm.html](brewday-claude-nordic-calm.html) | Claude Code | Nordic calm |
 | [brewday-codex-dark-lab.html](brewday-codex-dark-lab.html) | Codex (gpt-5.6) | Dark lab |
 
 Every file is what the agent wrote to `variant.html` — self-contained, inline CSS, inline SVG imagery, no external assets beyond Google Fonts.

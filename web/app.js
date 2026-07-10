@@ -1,6 +1,7 @@
 /* fabma frontend — no build step, no framework. */
 
-const SPARK = `<svg viewBox="-50 -50 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M0,-46 L10,-10 L46,0 L10,10 L0,46 L-10,10 L-46,0 L-10,-10 Z" fill="#FF4A1F"/><path d="M0,-46 L10,-10 L46,0 L10,10 L0,46 L-10,10 L-46,0 L-10,-10 Z" fill="#FF4A1F" opacity=".55" transform="rotate(45) scale(.6)"/></svg>`;
+// The mark: four variants, one picked.
+const SPARK = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="2.5" y="2.5" width="8.6" height="8.6" rx="2.6" fill="#C9C4BC"/><rect x="12.9" y="2.5" width="8.6" height="8.6" rx="2.6" fill="#C9C4BC"/><rect x="2.5" y="12.9" width="8.6" height="8.6" rx="2.6" fill="#C9C4BC"/><rect x="12.9" y="12.9" width="8.6" height="8.6" rx="2.6" fill="#E8431A"/></svg>`;
 const VIEWPORTS = { desktop: { w: 1440, h: 900 }, mobile: { w: 390, h: 844 } };
 
 const state = {
@@ -146,11 +147,22 @@ function scheduleRefresh() {
 }
 
 const pendingConverts = new Set();
+const IS_DESKTOP = navigator.userAgent.includes('Electron');
 
 function connectSse() {
 	const source = new EventSource('/api/events');
-	source.onmessage = (event) => {
+	source.onmessage = async (event) => {
 		const data = JSON.parse(event.data);
+		// In the desktop app, a fresh agent drop takes the stage by itself —
+		// the human should just see the options appear.
+		if (IS_DESKTOP && data.type === 'generation' && data.projectId !== state.project?.id
+			&& !state.projects.some((p) => p.id === data.projectId)) {
+			state.projects = await api('GET', '/api/projects').catch(() => state.projects);
+			if (state.projects.some((p) => p.id === data.projectId && p.ephemeral)) {
+				location.hash = `#/p/${data.projectId}`;
+				return;
+			}
+		}
 		if (data.type === 'convert') {
 			if (!pendingConverts.has(data.taskId)) return; // another tab's convert
 			if (data.status === 'done') {

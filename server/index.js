@@ -28,7 +28,7 @@ const PREVIEW_CSP = [
 	"base-uri 'none'",
 ].join('; ');
 
-export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011, open = true } = {}) {
+export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011, open = true, flavor = 'server' } = {}) {
 	const store = createStore(workspace);
 	store.recoverInterrupted();
 	const sse = new SseHub();
@@ -56,7 +56,7 @@ export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011
 		next();
 	});
 
-	app.get('/api/health', (req, res) => res.json({ ok: true, workspace: store.root, version: '0.1.0' }));
+	app.get('/api/health', (req, res) => res.json({ ok: true, workspace: store.root, version: '0.1.0', flavor }));
 	app.get('/api/providers', async (req, res) => res.json(await detectProviders()));
 	app.get('/api/directions', (req, res) => res.json(DIRECTIONS.map(({ id: did, label, hint }) => ({ id: did, label, hint }))));
 	app.get('/api/events', sse.handler);
