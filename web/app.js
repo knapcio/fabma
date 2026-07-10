@@ -145,15 +145,20 @@ function scheduleRefresh() {
 	}, 250);
 }
 
+const pendingConverts = new Set();
+
 function connectSse() {
 	const source = new EventSource('/api/events');
 	source.onmessage = (event) => {
 		const data = JSON.parse(event.data);
 		if (data.type === 'convert') {
+			if (!pendingConverts.has(data.taskId)) return; // another tab's convert
 			if (data.status === 'done') {
+				pendingConverts.delete(data.taskId);
 				toast(`Native Elementor template ready — <a href="/api/converts/${data.taskId}/file">download</a>`, 'ok', true);
 				window.location.assign(`/api/converts/${data.taskId}/file`);
 			} else if (data.status === 'error') {
+				pendingConverts.delete(data.taskId);
 				api('GET', `/api/converts/${data.taskId}`).then((t) => toast(`Convert failed: ${t.error}`, 'err')).catch(() => {});
 			}
 			return;
@@ -372,7 +377,7 @@ function renderCard(project, gen, variant) {
 				title: 'Favorite',
 				onclick: (e) => { e.stopPropagation(); api('POST', vUrl(gen, variant, 'favorite'), { value: !variant.favorite }).then(scheduleRefresh).catch(fail); },
 			}, variant.favorite ? '★' : '☆'),
-			el('button', { class: 'btn small icon ghost', title: 'Open full size', onclick: (e) => { e.stopPropagation(); window.open(vUrl(gen, variant, 'html'), '_blank'); } }, '⤢'),
+			el('button', { class: 'btn small icon ghost', title: 'Open full size', onclick: (e) => { e.stopPropagation(); window.open(vUrl(gen, variant, 'html'), '_blank', 'noopener,noreferrer'); } }, '⤢'),
 			gen.kind !== 'drop' && gen.kind !== 'import'
 				? el('button', { class: 'btn small icon ghost', title: 'Regenerate', onclick: (e) => { e.stopPropagation(); retry(gen, variant); } }, '↻')
 				: null,
@@ -503,8 +508,10 @@ function convert(gen, variant) {
 		provider: state.settings.provider,
 		model: state.settings.model || undefined,
 		structure: 'container',
-	}).then(() => toast('Converting to native Elementor widgets — the download starts when it\'s ready (this can take a few minutes).'))
-		.catch(fail);
+	}).then((task) => {
+		pendingConverts.add(task.id);
+		toast('Converting to native Elementor widgets — the download starts when it\'s ready (this can take a few minutes).');
+	}).catch(fail);
 }
 
 async function copyHandoff(gen, variant) {

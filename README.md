@@ -62,7 +62,7 @@ Pick the provider per generation in the dock — and retry any single variant wi
 cd desktop && npm install && npm start   # thin Electron shell; attaches to a running server or hosts its own
 ```
 
-`npm run dist` builds a DMG (unsigned; expect a Gatekeeper right-click-open on first launch).
+A packaged, signed DMG is on the roadmap — for now the shell runs from the checkout.
 
 ## Exports
 
@@ -113,7 +113,8 @@ No database, no build step, no telemetry. State is JSON + HTML files in the work
 - PNG export (headless screenshot) and side-by-side compare mode
 - Elementor: import-tested native conversion across versions; theme-kit awareness
 - Design tokens: lock a palette/type scale across all generations of a project
-- `npx fabma` (npm publish) and a Homebrew formula
+- `npx fabma` (npm publish), a Homebrew formula, and a packaged/signed desktop DMG
+- Container-level isolation for provider processes (today: allowlisted env + the CLIs' own sandboxes)
 
 ## Contributing
 

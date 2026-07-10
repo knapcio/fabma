@@ -70,6 +70,8 @@ export function createEngine(deps) {
 				const gen = deps.store.findGeneration(project, generationId);
 				const variant = gen?.variants[index];
 				if (!variant) return null;
+				// Canceled while still queued — don't resurrect it.
+				if (variant.status === 'error') return null;
 				const provider = getProvider(overrides.providerId || variant.provider) || getProvider(gen.provider);
 				Object.assign(variant, {
 					status: 'running', error: null, provider: provider.id, model: overrides.model ?? variant.model, startedAt: nowIso(),
@@ -138,7 +140,7 @@ export function createEngine(deps) {
 		if (!parentVariant) throw new Error('Parent variant no longer exists');
 		const genDir = deps.store.generationDir(project.id, parentGen.id);
 
-		const reference = { hasImage: false, imageName: null, hasMarkup: false, inlineHtml: null };
+		const reference = { hasImage: false, imageName: null, hasMarkup: false, markupName: null, inlineHtml: null };
 		const attachments = [];
 		if (parentVariant.refs?.image) {
 			const imagePath = path.join(genDir, parentVariant.refs.image);
@@ -155,8 +157,9 @@ export function createEngine(deps) {
 		}
 		if (parentVariant.refs?.markup) {
 			const markupPath = path.join(genDir, parentVariant.refs.markup);
+			reference.markupName = extOf(parentVariant.refs.markup) === '.svg' ? 'current.svg' : 'current.html';
 			if (viaFile) {
-				reference.hasMarkup = copyIfExists(markupPath, path.join(jobdir, 'current.html'));
+				reference.hasMarkup = copyIfExists(markupPath, path.join(jobdir, reference.markupName));
 			} else if (fs.existsSync(markupPath)) {
 				reference.inlineHtml = fs.readFileSync(markupPath, 'utf8').slice(0, MAX_INLINE_MARKUP);
 				reference.hasMarkup = true;
@@ -195,7 +198,11 @@ export function createEngine(deps) {
 		if (!gen) throw httpError(404, 'Generation not found');
 		for (const variant of gen.variants) {
 			const key = `${generationId}:${variant.index}`;
-			running.get(key)?.kill?.('SIGTERM');
+			const proc = running.get(key);
+			if (proc) {
+				proc.kill?.('SIGTERM');
+				setTimeout(() => proc.kill?.('SIGKILL'), 5000).unref();
+			}
 			running.delete(key);
 			if (variant.status === 'running' || variant.status === 'pending') {
 				variant.status = 'error';

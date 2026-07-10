@@ -16,7 +16,7 @@ const IMPORT_KINDS = { '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.web
 
 // Generated designs render inside sandboxed iframes AND under a CSP that
 // blocks every network destination except Google Fonts — a hostile variant
-// cannot call this local API or exfiltrate anything.
+// cannot call this local API, and its only network channel is font requests.
 const PREVIEW_CSP = [
 	"default-src 'none'",
 	"style-src 'unsafe-inline' https://fonts.googleapis.com",
@@ -163,7 +163,7 @@ export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011
 					resolve();
 				}
 				set.add(done);
-				req.on('close', done);
+				res.on('close', done);
 			});
 		}
 		const fresh = store.findGeneration(store.getProject(req.project.id), req.generation.id) || req.generation;
@@ -183,6 +183,18 @@ export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011
 	app.post('/api/projects/:pid/import', (req, res, next) => {
 		const { files = [], note } = req.body || {};
 		if (!files.length || files.length > 2) return next(httpError(400, 'Import expects 1–2 files (screenshot and/or markup)'));
+
+		// Validate and decode everything before anything is persisted.
+		const decoded = [];
+		for (const file of files) {
+			const ext = extOf(file.name);
+			const kind = IMPORT_KINDS[ext];
+			if (!kind) return next(httpError(400, `Unsupported import type: ${ext || file.name}`));
+			const buffer = Buffer.from(String(file.dataBase64 || ''), 'base64');
+			if (!buffer.length) return next(httpError(400, `Empty file: ${file.name}`));
+			decoded.push({ ext, kind, buffer });
+		}
+
 		const generation = {
 			id: id(10),
 			createdAt: nowIso(),
@@ -193,26 +205,22 @@ export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011
 			model: null,
 			parent: null,
 			status: 'done',
-			variants: [{ index: 0, status: 'done', file: null, refs: {}, direction: { id: 'import', label: 'Imported' }, provider: null, model: null, comments: [] }],
+			variants: [{ index: 0, status: 'done', file: 'v1.html', refs: {}, direction: { id: 'import', label: 'Imported' }, provider: null, model: null, comments: [] }],
 		};
 		const variant = generation.variants[0];
 		store.addGeneration(req.project, generation);
 
 		let imageTag = null;
 		let markupHtml = null;
-		for (const file of files) {
-			const ext = extOf(file.name);
-			const kind = IMPORT_KINDS[ext];
-			if (!kind) return next(httpError(400, `Unsupported import type: ${ext || file.name}`));
-			const buffer = Buffer.from(String(file.dataBase64 || ''), 'base64');
-			if (!buffer.length) return next(httpError(400, `Empty file: ${file.name}`));
+		for (const { ext, kind, buffer } of decoded) {
 			if (kind === 'image') {
 				variant.refs.image = `import${ext}`;
 				store.writeVariantFile(req.project.id, generation.id, variant.refs.image, buffer);
 				const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
 				imageTag = `<img alt="Imported screenshot" src="data:${mime};base64,${buffer.toString('base64')}">`;
 			} else if (kind === 'svg') {
-				store.writeVariantFile(req.project.id, generation.id, `import${ext}`, buffer);
+				variant.refs.markup = 'import.svg';
+				store.writeVariantFile(req.project.id, generation.id, 'import.svg', buffer);
 				markupHtml = wrapImport(buffer.toString('utf8'));
 			} else {
 				variant.refs.markup = 'import.html';
@@ -220,10 +228,7 @@ export function start({ workspace, port = Number(process.env.FABMA_PORT) || 4011
 				markupHtml = buffer.toString('utf8');
 			}
 		}
-		variant.file = 'v1.html';
-		const preview = markupHtml || wrapImport(imageTag);
-		store.writeVariantFile(req.project.id, generation.id, 'v1.html', preview);
-		if (!variant.refs.markup && !variant.refs.image) variant.refs.markup = 'v1.html';
+		store.writeVariantFile(req.project.id, generation.id, 'v1.html', markupHtml || wrapImport(imageTag));
 		store.saveProject(req.project);
 		sse.emit({ type: 'generation', projectId: req.project.id, generationId: generation.id, status: 'done' });
 		res.status(201).json(generation);

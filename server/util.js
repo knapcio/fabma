@@ -30,12 +30,21 @@ export function ensureDir(dir) {
 	return dir;
 }
 
-// Child CLIs must not inherit this process's Claude Code session markers,
-// otherwise nested `claude -p` calls may misbehave.
+// Child CLIs get an allowlisted environment: enough to run and authenticate,
+// but no incidental secrets (cloud keys, tokens) that a prompt-injected
+// reference file could ask an agent to exfiltrate into a design.
+const ENV_ALLOWLIST = [
+	'PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'TMPDIR', 'TERM', 'LANG',
+	'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'CODEX_HOME', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME',
+];
+
 export function cleanEnv() {
-	const env = { ...process.env };
-	for (const key of Object.keys(env)) {
-		if (key.startsWith('CLAUDE')) delete env[key];
+	const env = {};
+	for (const key of ENV_ALLOWLIST) {
+		if (process.env[key] != null) env[key] = process.env[key];
+	}
+	for (const key of Object.keys(process.env)) {
+		if (key.startsWith('LC_')) env[key] = process.env[key];
 	}
 	return env;
 }
@@ -108,7 +117,9 @@ export class SseHub {
 		});
 		res.write('retry: 2000\n\n');
 		this.clients.add(res);
-		req.on('close', () => this.clients.delete(res));
+		// res 'close' fires on connection teardown; req 'close' can fire at
+		// message end on modern Node, which would drop clients immediately.
+		res.on('close', () => this.clients.delete(res));
 	};
 
 	emit(event) {

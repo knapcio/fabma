@@ -42,6 +42,7 @@ export function exportBlob(html) {
 
 function dissect(html, sliced) {
 	const root = parse(html, { comment: false });
+	sanitize(root);
 	const css = root.querySelectorAll('style').map((s) => s.textContent).join('\n');
 	const fonts = root.querySelectorAll('link')
 		.filter((l) => /fonts\.googleapis|fonts\.gstatic/.test(l.getAttribute('href') || ''))
@@ -64,6 +65,23 @@ function dissect(html, sliced) {
 function isRenderedElement(node) {
 	const tag = node.rawTagName?.toLowerCase();
 	return !!tag && tag !== 'script' && tag !== 'style' && tag !== 'link';
+}
+
+// The export lands inside a real WordPress page — strip anything executable
+// wherever it sits in the tree, not just at the top level.
+function sanitize(root) {
+	for (const node of root.querySelectorAll('script, iframe, object, embed')) node.remove();
+	const walk = (node) => {
+		if (node.attributes) {
+			for (const name of Object.keys(node.attributes)) {
+				const value = node.attributes[name] || '';
+				if (/^on/i.test(name)) node.removeAttribute(name);
+				else if (/^(href|src|xlink:href|action|formaction)$/i.test(name) && /^\s*javascript:/i.test(value)) node.removeAttribute(name);
+			}
+		}
+		for (const child of node.childNodes || []) walk(child);
+	};
+	walk(root);
 }
 
 function htmlWidget(content) {

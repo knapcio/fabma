@@ -27,3 +27,4 @@ Fabma doesn't ship models or take API keys as its primary path — it drives the
 - **Failures**: the exit code + stderr tail land on the variant card; failed job dirs are kept under `<workspace>/.jobs/` for inspection; **Retry** reruns one variant, optionally with a different provider/model.
 - **Fallbacks**: if an agent prints the design instead of writing `variant.html`, fabma extracts the largest fenced HTML block from its output.
 - **Privacy**: your brief/designs go only to the provider you picked, through that provider's own CLI/API. Fabma itself makes no other network calls and serves on 127.0.0.1 only.
+- **Trust model**: provider processes get an allowlisted environment (PATH/HOME/auth vars — no incidental secrets) on top of each CLI's own sandbox, and prompts mark reference files as untrusted content. Treat imported HTML from strangers with the same caution as running an agent on a strange repo; container-level isolation is on the roadmap.
