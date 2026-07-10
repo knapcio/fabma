@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brewday — Ship code. Sip better.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3EAD8;
+    --paper-deep:#EADFC6;
+    --ink:#23201A;
+    --red:#D9401F;        /* display ink only */
+    --red-text:#A02A10;   /* small-text safe red */
+    --navy:#25418C;
+    --navy-text:#1F3670;
+    --mustard:#E9A93C;
+    --backdrop:#1B1814;
+    --rule:2px solid var(--ink);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    color:var(--ink);
+    background:
+      radial-gradient(circle at 20% 10%, rgba(255,255,255,.04), transparent 40%),
+      var(--backdrop);
+    display:grid;
+    place-items:center;
+    min-height:100vh;
+    padding:56px 28px;
+    overflow-x:hidden;
+  }
+
+  /* ---------- the printed sheet ---------- */
+  main.sheet{
+    position:relative;
+    width:100%;
+    max-width:1360px;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.14 0 0 0 0 0.12 0 0 0 0 0.09 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E"),
+      linear-gradient(160deg, var(--paper) 0%, var(--paper) 62%, var(--paper-deep) 100%);
+    box-shadow:0 30px 80px rgba(0,0,0,.55), 0 2px 0 rgba(255,255,255,.06);
+    outline:1px solid rgba(35,32,26,.35);
+  }
+  /* crop marks */
+  .crop{position:absolute;width:26px;height:26px;pointer-events:none;}
+  .crop::before,.crop::after{content:"";position:absolute;background:#8f887a;}
+  .crop::before{width:26px;height:2px;top:12px;}
+  .crop::after{width:2px;height:26px;left:12px;}
+  .crop.tl{top:-36px;left:-36px;}
+  .crop.tr{top:-36px;right:-36px;}
+  .crop.bl{bottom:-36px;left:-36px;}
+  .crop.br{bottom:-36px;right:-36px;}
+
+  /* ---------- masthead ---------- */
+  header.masthead{
+    display:flex;
+    align-items:stretch;
+    justify-content:space-between;
+    gap:0;
+    border-bottom:3px solid var(--ink);
+    box-shadow:0 6px 0 -3px var(--ink); /* double rule, newspaper style */
+    font-size:12.5px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+  }
+  .masthead > div{
+    padding:14px 22px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    white-space:nowrap;
+  }
+  .masthead .brand{
+    font-family:"Archivo Black", "Arial Black", sans-serif;
+    font-size:22px;
+    letter-spacing:.02em;
+    border-right:var(--rule);
+  }
+  .masthead .brand .star{color:var(--red);}
+  .masthead .vol{border-right:var(--rule);color:var(--navy-text);font-weight:500;}
+  .masthead .motto{flex:1;justify-content:center;color:var(--red-text);font-weight:700;min-width:0;overflow:hidden;}
+  .masthead .price{border-left:var(--rule);font-weight:700;background:var(--ink);color:var(--paper);}
+  .reg-mark{flex:none;}
+
+  /* ---------- hero ---------- */
+  section.hero{
+    position:relative;
+    display:grid;
+    grid-template-columns:minmax(0,7fr) minmax(0,5fr);
+    gap:48px;
+    padding:64px 56px 48px;
+    overflow:hidden;
+  }
+  .hero-copy{position:relative;z-index:2;display:flex;flex-direction:column;justify-content:center;}
+
+  .eyebrow{
+    display:inline-flex;
+    align-items:center;
+    gap:12px;
+    font-size:14px;
+    font-weight:700;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--navy-text);
+    margin-bottom:28px;
+  }
+  .eyebrow::before{content:"";width:34px;height:3px;background:var(--red);}
+
+  h1{
+    font-family:"Archivo Black", "Arial Black", sans-serif;
+    font-size:clamp(3rem, 8.2vw, 7.4rem);
+    line-height:.92;
+    letter-spacing:-.015em;
+    text-transform:uppercase;
+    margin-bottom:32px;
+    text-wrap:balance;
+  }
+  h1 .line{display:block;}
+  h1 .misprint{
+    color:var(--ink);
+    text-shadow:5px 5px 0 rgba(217,64,31,.85); /* off-register red pass */
+  }
+  h1 .highlight{
+    background:linear-gradient(0deg, var(--mustard) 0%, var(--mustard) 88%, transparent 88%);
+    box-decoration-break:clone;
+    -webkit-box-decoration-break:clone;
+    padding:0 .08em;
+  }
+
+  .lede{
+    font-size:17px;
+    line-height:1.7;
+    max-width:52ch;
+    margin-bottom:40px;
+  }
+  .lede strong{color:var(--red-text);}
+  .lede em{font-style:italic;color:var(--navy-text);}
+
+  .cta-row{display:flex;align-items:center;gap:28px;flex-wrap:wrap;margin-bottom:44px;}
+  a.cta{
+    display:inline-block;
+    font-family:"IBM Plex Mono", monospace;
+    font-weight:700;
+    font-size:17px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    text-decoration:none;
+    color:var(--paper);
+    background:var(--ink);
+    padding:20px 40px;
+    border:2px solid var(--ink);
+    box-shadow:7px 7px 0 var(--red);
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  a.cta:hover{transform:translate(3px,3px);box-shadow:4px 4px 0 var(--red);}
+  a.cta:active{transform:translate(7px,7px);box-shadow:0 0 0 var(--red);}
+  a.cta:focus-visible{outline:3px dashed var(--red);outline-offset:5px;}
+  .cta-note{font-size:13px;line-height:1.6;color:var(--navy-text);max-width:22ch;}
+
+  ul.specs{
+    list-style:none;
+    display:flex;
+    flex-wrap:wrap;
+    border-top:var(--rule);
+  }
+  ul.specs li{
+    flex:1 1 180px;
+    padding:16px 20px 4px 0;
+    font-size:13px;
+    line-height:1.55;
+  }
+  ul.specs li + li{padding-left:20px;border-left:1px solid rgba(35,32,26,.35);}
+  ul.specs .num{
+    display:block;
+    font-weight:700;
+    color:var(--red-text);
+    letter-spacing:.14em;
+    margin-bottom:4px;
+  }
+
+  /* ---------- artwork ---------- */
+  .hero-art{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:420px;
+  }
+  .hero-art svg.cup{width:100%;max-width:520px;height:auto;display:block;}
+  .steam{
+    font-family:"IBM Plex Mono", monospace;
+    font-weight:700;
+  }
+  @keyframes rise{
+    0%{transform:translateY(10px);opacity:0;}
+    25%{opacity:1;}
+    75%{opacity:1;}
+    100%{transform:translateY(-26px);opacity:0;}
+  }
+  .steam .s1{animation:rise 4.5s ease-in-out infinite;}
+  .steam .s2{animation:rise 4.5s ease-in-out 1.4s infinite;}
+  .steam .s3{animation:rise 4.5s ease-in-out 2.8s infinite;}
+
+  .stamp{
+    position:absolute;
+    top:-6px;
+    right:-8px;
+    width:168px;
+    height:168px;
+    z-index:3;
+    transform:rotate(-12deg);
+    opacity:.92;
+  }
+  @keyframes spin{to{transform:rotate(348deg);}}
+  .stamp .spinner{animation:spin 28s linear infinite;transform-origin:50% 50%;}
+  @media (prefers-reduced-motion: reduce){
+    .steam .s1,.steam .s2,.steam .s3,.stamp .spinner{animation:none;}
+    .steam text{opacity:1;}
+  }
+
+  /* ---------- footer strip ---------- */
+  footer.pressfoot{border-top:3px solid var(--ink);}
+  .ticker{
+    overflow:hidden;
+    border-bottom:var(--rule);
+    background:var(--ink);
+    color:var(--paper);
+  }
+  .ticker-track{
+    display:flex;
+    width:max-content;
+    animation:scroll 26s linear infinite;
+  }
+  .ticker-track span{
+    padding:12px 0;
+    font-size:13px;
+    font-weight:500;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    white-space:nowrap;
+  }
+  .ticker-track .star{color:var(--mustard);padding:12px 14px;}
+  @keyframes scroll{to{transform:translateX(-50%);}}
+  @media (prefers-reduced-motion: reduce){
+    .ticker-track{animation:none;}
+  }
+
+  .colophon{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:24px;
+    padding:16px 28px;
+    font-size:12px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    flex-wrap:wrap;
+  }
+  .inks{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .inks .chip{display:inline-flex;align-items:center;gap:7px;}
+  .inks .swatch{width:14px;height:14px;border:1.5px solid var(--ink);display:inline-block;}
+  .barcode{display:flex;align-items:center;gap:12px;}
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 1180px){
+    .masthead .motto{display:none;}
+  }
+  @media (max-width: 1020px){
+    section.hero{grid-template-columns:1fr;padding:56px 40px 40px;gap:24px;}
+    .hero-art{min-height:0;order:2;margin-top:8px;}
+    .hero-art svg.cup{max-width:420px;}
+    .stamp{top:auto;bottom:8%;right:2%;}
+    .masthead .motto{display:none;}
+  }
+  @media (max-width: 640px){
+    body{padding:36px 14px;}
+    section.hero{padding:44px 24px 32px;}
+    .masthead .vol{display:none;}
+    .masthead .brand{font-size:18px;}
+    .masthead > div{padding:12px 16px;}
+    h1 .misprint{text-shadow:3px 3px 0 rgba(217,64,31,.85);}
+    a.cta{width:100%;text-align:center;}
+    .stamp{width:120px;height:120px;bottom:4%;}
+    .crop{display:none;}
+    .colophon{justify-content:center;}
+  }
+</style>
+</head>
+<body>
+
+<main class="sheet">
+  <span class="crop tl" aria-hidden="true"></span>
+  <span class="crop tr" aria-hidden="true"></span>
+  <span class="crop bl" aria-hidden="true"></span>
+  <span class="crop br" aria-hidden="true"></span>
+
+  <header class="masthead">
+    <div class="brand"><span class="star" aria-hidden="true">★</span>&nbsp;BREWDAY</div>
+    <div class="vol">Vol.&nbsp;03&nbsp;·&nbsp;No.&nbsp;47&nbsp;—&nbsp;Roast&nbsp;Ed.</div>
+    <div class="motto">Small-batch coffee for developers · roasted every Friday</div>
+    <div class="reg-mark" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <circle cx="11" cy="11" r="8" stroke="#23201A" stroke-width="1.6"/>
+        <path d="M11 0v22M0 11h22" stroke="#23201A" stroke-width="1.6"/>
+      </svg>
+    </div>
+    <div class="price">$18/mo</div>
+  </header>
+
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-copy">
+      <p class="eyebrow">// the developer&rsquo;s coffee subscription</p>
+
+      <h1 id="hero-title">
+        <span class="line">Ship code.</span>
+        <span class="line misprint">Sip <span class="highlight">better.</span></span>
+      </h1>
+
+      <p class="lede">
+        Single-origin beans roasted in batches of forty and shipped on a
+        <strong>two-week sprint cadence</strong> — never from a warehouse,
+        never stale. Merge the pull request. Pour the cup.
+        <em>Repeat until deployed.</em>
+      </p>
+
+      <div class="cta-row">
+        <a class="cta" href="#start">Start brewing&nbsp;&rarr;</a>
+        <p class="cta-note">First bag ships Friday. No config required.</p>
+      </div>
+
+      <ul class="specs">
+        <li><span class="num">01 —</span>12&nbsp;oz whole bean, single origin, rotated monthly</li>
+        <li><span class="num">02 —</span>Roast-to-door in 48 hours, postmarked with roast date</li>
+        <li><span class="num">03 —</span>Pause or resume anytime, like a good pipeline</li>
+      </ul>
+    </div>
+
+    <div class="hero-art">
+      <svg class="cup" viewBox="0 0 560 620" role="img"
+           aria-label="Riso-print style illustration of a steaming diner coffee cup, over-printed in red and navy ink, with curly-brace code steam rising from it.">
+        <defs>
+          <pattern id="dotsMustard" width="9" height="9" patternUnits="userSpaceOnUse">
+            <circle cx="4.5" cy="4.5" r="2" fill="#E9A93C"/>
+          </pattern>
+          <pattern id="dotsNavy" width="7" height="7" patternUnits="userSpaceOnUse">
+            <circle cx="3.5" cy="3.5" r="1.5" fill="#25418C"/>
+          </pattern>
+        </defs>
+
+        <!-- halftone sunburst backdrop -->
+        <circle cx="290" cy="330" r="225" fill="url(#dotsMustard)" opacity="0.55"/>
+
+        <!-- RED pass: deliberately off-register -->
+        <g transform="translate(11,-9)" fill="#D9401F" opacity="0.88" style="mix-blend-mode:multiply">
+          <ellipse cx="280" cy="520" rx="200" ry="34"/>
+          <path d="M150 280 L410 280 L390 470 Q385 512 330 512 L230 512 Q175 512 170 470 Z"/>
+          <path d="M410 320 Q495 316 498 380 Q501 446 402 452" fill="none" stroke="#D9401F" stroke-width="26" stroke-linecap="round"/>
+          <ellipse cx="280" cy="280" rx="130" ry="30"/>
+        </g>
+
+        <!-- NAVY pass: in register, line work + coffee -->
+        <g style="mix-blend-mode:multiply">
+          <ellipse cx="280" cy="520" rx="200" ry="34" fill="none" stroke="#25418C" stroke-width="7"/>
+          <path d="M150 280 L410 280 L390 470 Q385 512 330 512 L230 512 Q175 512 170 470 Z"
+                fill="none" stroke="#25418C" stroke-width="7" stroke-linejoin="round"/>
+          <path d="M410 320 Q495 316 498 380 Q501 446 402 452" fill="none" stroke="#25418C" stroke-width="7" stroke-linecap="round"/>
+          <!-- handle inner line -->
+          <path d="M412 348 Q466 346 468 382 Q470 420 406 425" fill="none" stroke="#25418C" stroke-width="7" stroke-linecap="round"/>
+          <ellipse cx="280" cy="280" rx="130" ry="30" fill="none" stroke="#25418C" stroke-width="7"/>
+          <ellipse cx="280" cy="282" rx="102" ry="21" fill="#25418C"/>
+          <!-- halftone shading, right side of cup -->
+          <path d="M332 306 L398 306 L383 462 Q380 498 332 498 Z" fill="url(#dotsNavy)" opacity="0.5"/>
+        </g>
+
+        <!-- cup badge, knocked out to paper -->
+        <g transform="rotate(-4 262 400)">
+          <text x="196" y="405" font-family="'Archivo Black','Arial Black',sans-serif" font-size="34"
+                fill="#F3EAD8" letter-spacing="1">BREWDAY</text>
+          <text x="196" y="432" font-family="'IBM Plex Mono',monospace" font-weight="700" font-size="16"
+                fill="#F3EAD8" letter-spacing="3">BATCH №47</text>
+        </g>
+
+        <!-- code-bracket steam: red ghost pass + navy pass -->
+        <g class="steam" aria-hidden="true">
+          <g fill="#D9401F" opacity="0.55" transform="translate(7,-6)">
+            <text class="s1" x="196" y="196" font-size="64">{</text>
+            <text class="s2" x="290" y="150" font-size="46">;</text>
+            <text class="s3" x="330" y="210" font-size="58">}</text>
+          </g>
+          <g fill="#25418C">
+            <text class="s1" x="196" y="196" font-size="64">{</text>
+            <text class="s2" x="290" y="150" font-size="46">;</text>
+            <text class="s3" x="330" y="210" font-size="58">}</text>
+          </g>
+        </g>
+      </svg>
+
+      <!-- rotating rubber stamp -->
+      <svg class="stamp" viewBox="0 0 200 200" aria-hidden="true">
+        <g class="spinner">
+          <circle cx="100" cy="100" r="96" fill="none" stroke="#A02A10" stroke-width="4"/>
+          <circle cx="100" cy="100" r="66" fill="none" stroke="#A02A10" stroke-width="2.5"/>
+          <defs>
+            <path id="stampArc" d="M100,100 m-81,0 a81,81 0 1,1 162,0 a81,81 0 1,1 -162,0"/>
+          </defs>
+          <text fill="#A02A10" font-family="'IBM Plex Mono',monospace" font-weight="700" font-size="14" letter-spacing="2.5">
+            <textPath href="#stampArc">FRESH EVERY SPRINT ★ SMALL BATCH ★ ROASTED ★</textPath>
+          </text>
+        </g>
+        <text x="100" y="94" text-anchor="middle" fill="#A02A10"
+              font-family="'Archivo Black','Arial Black',sans-serif" font-size="30">48H</text>
+        <text x="100" y="120" text-anchor="middle" fill="#A02A10"
+              font-family="'IBM Plex Mono',monospace" font-weight="700" font-size="12" letter-spacing="1.5">ROAST&#8202;&rarr;&#8202;DOOR</text>
+      </svg>
+    </div>
+  </section>
+
+  <footer class="pressfoot">
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker-track">
+        <span>Ship it while it&rsquo;s hot</span><span class="star">★</span>
+        <span>Roasted in batches of forty</span><span class="star">★</span>
+        <span>Delivered on a sprint cadence</span><span class="star">★</span>
+        <span>No merge conflicts, just pour-overs</span><span class="star">★</span>
+        <span>Ship it while it&rsquo;s hot</span><span class="star">★</span>
+        <span>Roasted in batches of forty</span><span class="star">★</span>
+        <span>Delivered on a sprint cadence</span><span class="star">★</span>
+        <span>No merge conflicts, just pour-overs</span><span class="star">★</span>
+      </div>
+    </div>
+    <div class="colophon">
+      <div class="inks">
+        <span>Printed in two inks:</span>
+        <span class="chip"><span class="swatch" style="background:#D9401F"></span>Cherry&nbsp;Red&nbsp;01</span>
+        <span class="chip"><span class="swatch" style="background:#25418C"></span>Press&nbsp;Navy&nbsp;02</span>
+        <span class="chip"><span class="swatch" style="background:#E9A93C"></span>Spot&nbsp;Mustard</span>
+      </div>
+      <div class="barcode">
+        <svg width="96" height="26" viewBox="0 0 96 26" aria-hidden="true">
+          <g fill="#23201A">
+            <rect x="0" width="3" height="26"/><rect x="6" width="1.5" height="26"/>
+            <rect x="11" width="4" height="26"/><rect x="18" width="1.5" height="26"/>
+            <rect x="23" width="2.5" height="26"/><rect x="29" width="5" height="26"/>
+            <rect x="37" width="1.5" height="26"/><rect x="42" width="3" height="26"/>
+            <rect x="48" width="1.5" height="26"/><rect x="53" width="4.5" height="26"/>
+            <rect x="61" width="2" height="26"/><rect x="66" width="1.5" height="26"/>
+            <rect x="71" width="4" height="26"/><rect x="78" width="2" height="26"/>
+            <rect x="83" width="1.5" height="26"/><rect x="88" width="3.5" height="26"/>
+          </g>
+        </svg>
+        <span>BRW-047-DEV</span>
+      </div>
+    </div>
+  </footer>
+</main>
+
+</body>
+</html>
