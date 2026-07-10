@@ -3,7 +3,10 @@
 You are a coding/design agent (Claude Code, Codex, etc.). Fabma is a local
 design gallery where your human picks between design variants you made and
 leaves pinned comments. This file tells you how to drive it. The human sees
-everything in a browser; you talk to a local HTTP API.
+everything in the Fabma app (or a browser); you talk to a local HTTP API.
+
+(Humans: `fabma skill install [--codex]` teaches your agents this protocol
+permanently — a Claude Code skill plus an optional ~/.codex/AGENTS.md section.)
 
 Base URL: `http://localhost:4011` (default port).
 

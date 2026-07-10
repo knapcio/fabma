@@ -28,6 +28,16 @@ Fabma opens a gallery in your browser. You compare the options, **click on a des
 
 Each drop is a fresh, disposable session — nothing to set up, nothing to clean. Point any agent at **`http://localhost:4011/agent.md`** and it knows the whole protocol.
 
+### Teach your agent (once)
+
+```bash
+node bin/fabma.js skill install           # Claude Code: personal skill → ~/.claude/skills/fabma
+node bin/fabma.js skill install --codex   # …and a fabma section in ~/.codex/AGENTS.md
+node bin/fabma.js skill print             # snippet to paste into any AGENTS.md / CLAUDE.md
+```
+
+After that, "give me a few directions for the pricing page" in any repo makes your agent design variants and hand them to you in Fabma on its own. The installed skill has this checkout's path baked in, so agents can start the server themselves. Agents without the skill can still discover everything at `/agent.md` at runtime.
+
 ### 2. You brief — AI proposes (the playground)
 
 Create a project with a brief (the locked content) and generate 4 variants, each committed to a different **art direction** — Editorial ink, Swiss brutalist, Dark lab, Neo-retro print… Pick the strongest, pin comments, refine: each refinement round produces takes from *faithful* to *bold*. Every generation is a branch in the project tree; nothing is lost.

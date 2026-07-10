@@ -15,6 +15,12 @@ if (args.includes('--help') || args.includes('-h')) {
     fabma [workspace] [options]           start the playground
     fabma drop <files...> [options]       push HTML variants into a fresh
                                           session (starts the server if needed)
+    fabma skill install [--codex]         teach your agents to use fabma:
+                                          installs the Claude Code skill, and
+                                          with --codex adds a section to
+                                          ~/.codex/AGENTS.md
+    fabma skill print                     print the agent snippet to paste
+                                          into any AGENTS.md / CLAUDE.md
 
   Start options
     -p, --port <n>    Port (default: 4011 — 0xFAB, or $FABMA_PORT)
@@ -39,6 +45,8 @@ if (args[0] === 'drop') {
 		console.error(`fabma drop failed: ${err.message}`);
 		process.exit(1);
 	});
+} else if (args[0] === 'skill') {
+	skill(args.slice(1));
 } else {
 	let workspace;
 	let port;
@@ -51,6 +59,54 @@ if (args[0] === 'drop') {
 	}
 	const { start } = await import('../server/index.js');
 	start({ workspace, port: port || undefined, open });
+}
+
+function skill(rest) {
+	const os = process.env.HOME || process.env.USERPROFILE;
+	const root = path.resolve(__dirname, '..');
+	const template = fs.readFileSync(path.join(root, 'skill', 'SKILL.md'), 'utf8')
+		.replaceAll('{{FABMA_DIR}}', root);
+
+	const snippet = `<!-- fabma-skill -->
+## Fabma — human design review
+When the user wants design options/mockups to choose from, write each option as a
+self-contained HTML file (inline CSS, no external assets beyond Google Fonts links,
+desktop-first 1440px, real copy), then run:
+\`node ${root}/bin/fabma.js drop a.html b.html --title "…" --wait\`
+It shows a local gallery, blocks until the human picks a variant and pins comments,
+then prints their decision as JSON (variant index, note, comments with % coordinates).
+Full protocol: http://localhost:4011/agent.md — start the server if needed with
+\`node ${root}/bin/fabma.js --no-open &\`.
+<!-- /fabma-skill -->`;
+
+	if (rest[0] === 'print') {
+		console.log(snippet);
+		return;
+	}
+	if (rest[0] !== 'install') {
+		console.error('usage: fabma skill install [--codex] | fabma skill print');
+		process.exit(1);
+	}
+
+	const skillDir = path.join(os, '.claude', 'skills', 'fabma');
+	fs.mkdirSync(skillDir, { recursive: true });
+	fs.writeFileSync(path.join(skillDir, 'SKILL.md'), template);
+	console.log(`Claude Code skill installed: ${path.join(skillDir, 'SKILL.md')}`);
+
+	if (rest.includes('--codex')) {
+		const codexDir = path.join(os, '.codex');
+		if (!fs.existsSync(codexDir)) {
+			console.log('~/.codex not found — is Codex installed? Skipped. Use `fabma skill print` to add it manually.');
+			return;
+		}
+		const agentsFile = path.join(codexDir, 'AGENTS.md');
+		const current = fs.existsSync(agentsFile) ? fs.readFileSync(agentsFile, 'utf8') : '';
+		const updated = current.includes('<!-- fabma-skill -->')
+			? current.replace(/<!-- fabma-skill -->[\s\S]*?<!-- \/fabma-skill -->/, snippet)
+			: `${current.trimEnd()}\n\n${snippet}\n`;
+		fs.writeFileSync(agentsFile, updated);
+		console.log(`Codex instructions ${current.includes('<!-- fabma-skill -->') ? 'updated' : 'added'}: ${agentsFile}`);
+	}
 }
 
 async function drop(rest) {
